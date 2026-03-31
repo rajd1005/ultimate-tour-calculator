@@ -11,14 +11,18 @@ function utpc_render_shortcode() {
         <form id="utpc-form">
             <div class="input-master-table">
                 <div class="compact-box">
-                    <div class="compact-label">1. Basic Details & Rooms</div>
+                    <div class="compact-label">1. Basic Details, Tour Date & Rooms</div>
                     
-                    <div style="display:flex; gap:10px; margin-bottom: 12px;">
-                        <div style="flex:1;">
+                    <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom: 12px;">
+                        <div style="flex:1; min-width:70px;">
                             <label style="font-size:10px; font-weight:800; color:#555; text-transform:uppercase;">Total Pax</label>
                             <input type="number" name="tour_pax" class="u-field" value="4" min="1">
                         </div>
-                        <div style="flex:2;">
+                        <div style="flex:1; min-width:110px;">
+                            <label style="font-size:10px; font-weight:800; color:#555; text-transform:uppercase;">Tour Date</label>
+                            <input type="date" name="tour_date" class="u-field" value="<?php echo date('Y-m-d', strtotime('tomorrow')); ?>" required>
+                        </div>
+                        <div style="flex:1; min-width:120px;">
                             <label style="font-size:10px; font-weight:800; color:#555; text-transform:uppercase;">Hotel Category</label>
                             <select name="hotel_category" class="u-field" style="background:#f0f7ff; font-weight:600; border-color:#bae6fd; color:#0369a1;">
                                 <?php 
@@ -89,11 +93,7 @@ function utpc_render_shortcode() {
     <div id="tpl-room-row" class="hidden">
         <div class="build-row">
             <select name="custom_rooms[]" class="u-field" style="border:none; background:transparent;">
-                <?php 
-                foreach($settings['rooms'] as $k => $r) {
-                    echo "<option value='{$k}'>{$r['name']} ({$r['capacity']} Pax)</option>";
-                }
-                ?>
+                <?php foreach($settings['rooms'] as $k => $r) { echo "<option value='{$k}'>{$r['name']} ({$r['capacity']} Pax)</option>"; } ?>
             </select>
             <button type="button" class="btn-rem">&times;</button>
         </div>
@@ -102,11 +102,7 @@ function utpc_render_shortcode() {
     <div id="tpl-veh-row" class="hidden">
         <div class="build-row">
             <select name="custom_vehicles[]" class="u-field" style="border:none; background:transparent;">
-                <?php 
-                foreach($settings['vehicles'] as $k => $v) {
-                    echo "<option value='{$k}'>{$v['name']} ({$v['capacity']} Pax)</option>";
-                }
-                ?>
+                <?php foreach($settings['vehicles'] as $k => $v) { echo "<option value='{$k}'>{$v['name']} ({$v['capacity']} Pax)</option>"; } ?>
             </select>
             <button type="button" class="btn-rem">&times;</button>
         </div>
@@ -117,19 +113,35 @@ function utpc_render_shortcode() {
             <span class="close-modal" id="close-modal">&times;</span>
             <div class="modal-header">
                 <h2><?php echo esc_html($settings['popup_title']); ?></h2>
-                <p><?php echo esc_html($settings['popup_subtitle']); ?></p>
+                <p><?php echo esc_html($settings['trip_duration']['label'] ?? '6 Night - 7 Days'); ?> | <?php echo esc_html($settings['popup_subtitle']); ?></p>
             </div>
             <div class="modal-body">
                 <div class="mini-grid">
+                    <div class="mini-box" style="grid-column: 1 / 3;">
+                        <label>Tour Dates & Season</label>
+                        <span id="m-dates" style="font-weight:700;"></span>
+                        <div id="m-season" style="font-size:11px; color:#eab308; margin-top:2px; font-weight:700;"></div>
+                    </div>
+                    
                     <div class="mini-box"><label>Total Pax</label><span id="m-pax"></span></div>
                     <div class="mini-box"><label>Category</label><span id="m-hotel"></span></div>
                     <div class="mini-box" style="grid-column: 1 / 3;"><label>Vehicle</label><span id="m-veh"></span></div>
-                    <div class="mini-box" style="grid-column: 1 / 3;"><label>Rooms Breakdown</label><span id="m-rms"></span></div>
+                    <div class="mini-box" style="grid-column: 1 / 3;"><label>Rooms</label><span id="m-rms"></span></div>
                 </div>
+                
+                <div class="inc-exc-box">
+                    <div class="inc-title">INCLUSIONS</div>
+                    <ul class="inc-list">
+                        <?php foreach($settings['inclusions'] as $inc) { echo "<li>✓ " . esc_html($inc) . "</li>"; } ?>
+                    </ul>
+                    <div class="exc-note">* <?php echo esc_html($settings['exclusions_note']); ?></div>
+                </div>
+
                 <div class="price-highlight">
                     <label>Package Price PP</label>
                     <span id="m-pp"></span>
                 </div>
+                
                 <a href="#" id="m-wa-btn" target="_blank" class="btn-whatsapp">ENQUIRE ON WHATSAPP</a>
                 <div class="policy-compact">
                     <?php echo wp_kses_post($settings['popup_note']); ?>

@@ -12,6 +12,43 @@ class UTPC_Calculator {
         $hotel_cat = sanitize_text_field($data['hotel_category'] ?? 'budget');
         $multiplier= $cfg['hotel_categories'][$hotel_cat]['multiplier'] ?? 1.0;
 
+        // --- DATE & SEASONAL CALCULATION ---
+        $tour_date = sanitize_text_field($data['tour_date'] ?? date('Y-m-d'));
+        
+        $surcharge_percent = 0;
+        $season_name = 'Normal Season';
+        
+        if ($tour_date) {
+            $m_d = date('m-d', strtotime($tour_date));
+            foreach ($cfg['seasonal_surcharges'] as $season) {
+                $start = $season['start'];
+                $end   = $season['end'];
+                
+                // If season crosses new year (e.g. Dec 15 to Jan 10)
+                if ($start > $end) {
+                    if ($m_d >= $start || $m_d <= $end) {
+                        $surcharge_percent = $season['surcharge_percent'];
+                        $season_name = $season['name'];
+                        break;
+                    }
+                } else {
+                    if ($m_d >= $start && $m_d <= $end) {
+                        $surcharge_percent = $season['surcharge_percent'];
+                        $season_name = $season['name'];
+                        break;
+                    }
+                }
+            }
+        }
+        
+        $season_multiplier = 1 + ($surcharge_percent / 100);
+        
+        // Calculate End Date based on Trip Duration settings
+        $days = $cfg['trip_duration']['days'] ?? 7;
+        $start_date_str = date('d M Y', strtotime($tour_date));
+        // End date is Start Date + (Days - 1)
+        $end_date_str = date('d M Y', strtotime($tour_date . " + " . ($days - 1) . " days"));
+
         // Process Rooms
         $vr = [];
         if (($data['room_mode'] ?? 'auto') === 'custom') {
@@ -38,23 +75,27 @@ class UTPC_Calculator {
             foreach($vr as $robj) {
                 if (!$vobj || !$robj) continue; 
                 
-                // Base cost logic strictly uses actual persons ($tp)
+                // Base cost logic multiplied by hotel category AND season surcharge
                 $base_cost = $vobj['cost'] + $robj['cost'] + ($tp * $cfg['base_cost_per_pax']);
-                $agent_price = $base_cost * $multiplier; 
+                $agent_price = $base_cost * $multiplier * $season_multiplier; 
                 
                 // Profit margin added
                 $pp = ceil(($agent_price / $tp + $cfg['profit_margin_per_pax']) / 500) * 500;
                 
                 $res[] = [
-                    'v_h' => $vobj['html'], 
-                    'v_r' => $vobj['raw'], 
-                    'r_h' => $robj['html'], 
-                    'r_r' => $robj['raw'], 
-                    'at'  => $agent_price, 
-                    'pt'  => ($pp * $tp) - $agent_price, 
-                    'pp'  => $pp, 
-                    'tot' => $pp * $tp, 
-                    'tp'  => $tp
+                    'v_h'        => $vobj['html'], 
+                    'v_r'        => $vobj['raw'], 
+                    'r_h'        => $robj['html'], 
+                    'r_r'        => $robj['raw'], 
+                    'at'         => $agent_price, 
+                    'pt'         => ($pp * $tp) - $agent_price, 
+                    'pp'         => $pp, 
+                    'tot'        => $pp * $tp, 
+                    'tp'         => $tp,
+                    'start_date' => $start_date_str,
+                    'end_date'   => $end_date_str,
+                    'season_name'=> $season_name,
+                    'surcharge_percent' => $surcharge_percent,
                 ];
             }
         }
@@ -145,7 +186,7 @@ class UTPC_Calculator {
                 if ($current_qty < $limit) {
                     $new_combo = $combo;
                     $new_combo[$k] = $current_qty + 1;
-                    $solve($i, $current_cap + $items[$k]['capacity'], $new_combo);
+                    $solve($i, $current_cap + $items[$k]['capacity'] ?? 0, $new_combo);
                 }
             }
         };

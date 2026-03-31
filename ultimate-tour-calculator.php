@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Ultimate Tour Price Calculator
  * Description: A modular, AJAX-powered tour pricing calculator with dynamic hotel categories.
- * Version: 1.0.0
+ * Version: 1.0.3
  * Author: Your Name
  */
 
@@ -20,8 +20,8 @@ require_once UTPC_PATH . 'includes/class-utpc-shortcode.php';
 // Enqueue Assets
 add_action('wp_enqueue_scripts', 'utpc_enqueue_scripts', 999);
 function utpc_enqueue_scripts() {
-    wp_enqueue_style('utpc-style', UTPC_URL . 'assets/css/style.css', [], '1.0.0');
-    wp_enqueue_script('utpc-script', UTPC_URL . 'assets/js/script.js', ['jquery'], '1.0.0', true);
+    wp_enqueue_style('utpc-style', UTPC_URL . 'assets/css/style.css', [], '1.0.3');
+    wp_enqueue_script('utpc-script', UTPC_URL . 'assets/js/script.js', ['jquery'], '1.0.3', true);
     
     // Localize AJAX URL and config for JS
     $settings = include(UTPC_PATH . 'config/settings.php');

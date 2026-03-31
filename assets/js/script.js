@@ -63,27 +63,36 @@ jQuery(document).ready(function($) {
 
     // Modal Popup Logic
     $(document).on('click', '.utpc-row', function() {
-        // Use .attr() for dynamic HTML safety
-        let pax = $(this).attr('data-pax');
-        let veh = $(this).attr('data-veh');
-        let rms = $(this).attr('data-rms');
-        let pp = $(this).attr('data-pp');
-        let hotel = $(this).attr('data-hotel');
+        // Grab values safely with fallbacks
+        let pax = $(this).attr('data-pax') || 'N/A';
+        let veh = $(this).attr('data-veh') || 'N/A';
+        let rms = $(this).attr('data-rms') || 'N/A';
+        let pp = $(this).attr('data-pp') || '0';
+        let hotel = $(this).attr('data-hotel') || 'N/A';
+        let start = $(this).attr('data-start') || 'N/A';
+        let end = $(this).attr('data-end') || 'N/A';
+        
+        // ONLY GET THE SEASON NAME. Ignore the percentage.
+        let seasonName = $(this).attr('data-season-name') || 'Normal Season';
         
         let numPP = "₹" + Number(pp).toLocaleString('en-IN');
-        
         let title = $('#utpcModal .modal-header h2').text().trim();
         let subtitle = $('#utpcModal .modal-header p').text().trim();
         
         // Populate Modal Data UI
+        $('#m-dates').text(`${start} ➔ ${end}`);
+        $('#m-season').text(`${seasonName}`); 
         $('#m-pax').text(pax + " Persons"); 
         $('#m-hotel').text(hotel);
         $('#m-veh').text(veh);
         $('#m-rms').text(rms); 
         $('#m-pp').text(numPP);
         
-        // Prepare Formatted WhatsApp Message
-        let messageText = `*${title}*\n_${subtitle}_\n\n*Package Details:*\n• Hotel Category: ${hotel}\n• Pax: ${pax} Persons\n• Vehicle: ${veh}\n• Rooms: ${rms}\n\n*Price PP: ${numPP}*`;
+        // Grab the current page URL
+        let pageUrl = window.location.href;
+        
+        // Prepare Formatted WhatsApp Message (Including the Inclusions/Exclusions and URL)
+        let messageText = `*${title}*\n_${subtitle}_\n\n*Trip Dates:* ${start} to ${end}\n*Season:* ${seasonName}\n\n*Package Details:*\n• Hotel Category: ${hotel}\n• Pax: ${pax} Persons\n• Vehicle: ${veh}\n• Rooms: ${rms}\n\n*Inclusions:*\n✓ Jammu / Srinagar Pickup and drop\n✓ Sightseeing & Transfers\n✓ All Accommodation\n✓ Breakfast & Dinner\n_Not mentioned is all EXCLUSION_\n\n*Price PP: ${numPP}*\n\n*Detailed Itinerary:* ${pageUrl}`;
         let message = encodeURIComponent(messageText);
         
         $('#m-wa-btn').attr('href', `https://wa.me/${utpc_obj.wa_number}?text=${message}`);
