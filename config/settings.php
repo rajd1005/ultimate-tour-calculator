@@ -69,5 +69,17 @@ return [
     ],
     'exclusions_note' => 'Anything Not mentioned is all exclusions',
     
-    'popup_note'      => '<b>Note:</b> 5% GST extra. Child below 6 FREE.'
+    'popup_note'      => '<b>Note:</b> 5% GST extra. Child below 6 FREE.',
+
+    // ---------------------------------------------------------
+    // 8. FIXED DEPARTURES (Employee Booking System)
+    // ---------------------------------------------------------
+    'fixed_departures' => [
+        'kashmir_aug' => [
+            'name'           => 'Kashmir Valley - 08th May',
+            'hotel_category' => 'budget',
+            'vehicles'       => [ 'urbania' => 1 ], 
+            'total_seats'    => 16
+        ],
+    ]
 ];

@@ -3,6 +3,59 @@ if (!defined('ABSPATH')) { exit; }
 
 class UTPC_Calculator {
     public static function process_calculation($data) {
+        if (($data['calc_mode'] ?? 'custom') === 'fixed') {
+            return self::process_fixed($data);
+        } else {
+            return self::process_custom($data);
+        }
+    }
+
+    // --- NEW: FIXED DEPARTURE SYSTEM ---
+    private static function process_fixed($data) {
+        $cfg = include(UTPC_PATH . 'config/settings.php');
+        $tp = max(1, intval($data['tour_pax'] ?? 2));
+        $tour_id = sanitize_text_field($data['fixed_tour'] ?? '');
+        
+        if (!isset($cfg['fixed_departures'][$tour_id])) return [];
+        $tour = $cfg['fixed_departures'][$tour_id];
+        
+        $total_vehicle_cost = 0; $vehicle_names = [];
+        foreach ($tour['vehicles'] as $v_key => $qty) {
+            $total_vehicle_cost += ($cfg['vehicles'][$v_key]['price'] * $qty);
+            $vehicle_names[] = $qty . "x " . $cfg['vehicles'][$v_key]['name'];
+        }
+        $veh_cost_per_seat = $total_vehicle_cost / max(1, intval($tour['total_seats']));
+
+        $rooms = $data['custom_rooms'] ?? [];
+        if (empty($rooms)) return [];
+
+        $room_cost = 0; $room_html = ""; $room_raw = [];
+        $counts = array_count_values((array)$rooms);
+        foreach ($counts as $k => $qty) {
+            if (!isset($cfg['rooms'][$k])) continue;
+            $room_cost += $qty * $cfg['rooms'][$k]['price'];
+            $name = $cfg['rooms'][$k]['name'];
+            $room_html .= "<span class='u-badge badge-room-std'>{$qty}x {$name}</span> ";
+            $room_raw[] = "{$qty}x {$name}";
+        }
+
+        $base_cost = ($veh_cost_per_seat * $tp) + $room_cost + ($cfg['base_cost_per_pax'] * $tp);
+        $hotel_multiplier = $cfg['hotel_categories'][$tour['hotel_category']]['multiplier'] ?? 1.0;
+        $agent_price = $base_cost * $hotel_multiplier; 
+        
+        $pp = ceil(($agent_price / $tp + $cfg['profit_margin_per_pax']) / 500) * 500;
+        return [[
+            'tour_name' => $tour['name'],
+            'v_h' => "<span class='u-badge badge-veh'>" . implode(', ', $vehicle_names) . "</span>",
+            'v_r' => implode(', ', $vehicle_names),
+            'r_h' => "<div class='badge-list'>$room_html</div>",
+            'r_r' => implode(', ', $room_raw),
+            'pp'  => $pp, 'tot' => $pp * $tp, 'tp'  => $tp
+        ]];
+    }
+
+    // --- EXACT ORIGINAL CUSTOM CALCULATOR ---
+    private static function process_custom($data) {
         $cfg = include(UTPC_PATH . 'config/settings.php');
         
         // Strict global PAX definition based on input
