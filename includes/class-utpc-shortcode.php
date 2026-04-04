@@ -13,12 +13,15 @@ function utpc_get_booked_seats($tour_id) {
 
 function utpc_render_shortcode() {
     $settings = include(UTPC_PATH . 'config/settings.php');
-    $is_employee = is_user_logged_in();
+    
+    $role_type = utpc_get_user_role_type();
+    $can_book  = ($role_type === 'manager' || $role_type === 'employee');
+    
     ob_start();
     ?>
     <div id="utpc-app-wrapper" class="utpc-wrapper">
         
-        <?php if ($is_employee): ?>
+        <?php if ($can_book): ?>
         <div style="display:flex; margin-bottom: 15px; border-radius: 6px; overflow: hidden; border: 1px solid #0073aa;">
             <button type="button" class="utpc-tab-btn active" data-target="utpc-custom-wrap" style="flex:1; padding:10px; border:none; background:#0073aa; color:#fff; font-weight:bold; cursor:pointer; font-size:12px;">Custom Calculator</button>
             <button type="button" class="utpc-tab-btn" data-target="utpc-fixed-wrap" style="flex:1; padding:10px; border:none; background:#fff; color:#0073aa; font-weight:bold; cursor:pointer; font-size:12px;">Fixed Departure Booking</button>
@@ -30,18 +33,40 @@ function utpc_render_shortcode() {
             <form id="utpc-form">
                 <input type="hidden" name="calc_mode" value="custom"> 
                 <div class="input-master-table">
-                    <div class="compact-box">
-                        <div class="compact-label">1. Basic Details, Tour Date & Rooms</div>
-                        <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom: 12px;">
-                            <div style="flex:1; min-width:70px;"><label style="font-size:10px; font-weight:800; color:#555; text-transform:uppercase;">Total Pax</label><input type="number" name="tour_pax" class="u-field" value="4" min="1"></div>
-                            <div style="flex:1; min-width:110px;"><label style="font-size:10px; font-weight:800; color:#555; text-transform:uppercase;">Tour Date</label><input type="date" name="tour_date" class="u-field" value="<?php echo date('Y-m-d', strtotime('tomorrow')); ?>" required></div>
-                            <div style="flex:1; min-width:120px;"><label style="font-size:10px; font-weight:800; color:#555; text-transform:uppercase;">Hotel Category</label>
+                    
+                    <div class="compact-box" style="grid-column: 1 / -1; background:#f8fafc; border-color:#cbd5e1;">
+                        <div class="compact-label" style="color:#334155; border-bottom:1px dashed #cbd5e1;">1. Trip Parameters</div>
+                        <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom: 5px;">
+                            <div style="flex:1; min-width:80px;"><label style="font-size:10px; font-weight:800; color:#555; text-transform:uppercase;">Total Pax</label>
+                                <input type="number" name="tour_pax" class="u-field" value="4" min="1" style="font-weight:bold;">
+                            </div>
+                            <div style="flex:1; min-width:110px;"><label style="font-size:10px; font-weight:800; color:#555; text-transform:uppercase;">Start Date</label>
+                                <input type="date" name="tour_date" class="u-field" value="<?php echo date('Y-m-d', strtotime('tomorrow')); ?>" required>
+                            </div>
+                            <div style="flex:1; min-width:80px;"><label style="font-size:10px; font-weight:800; color:#555; text-transform:uppercase;">Total Days</label>
+                                <input type="number" name="trip_days" class="u-field" value="7" min="1" style="font-weight:bold;">
+                            </div>
+                            <div style="flex:1.5; min-width:150px;"><label style="font-size:10px; font-weight:800; color:#555; text-transform:uppercase;">Pickup Location</label>
+                                <select name="pickup_location" class="u-field" style="font-weight:bold;">
+                                    <?php foreach($settings['pickup_locations'] as $k => $v) { echo "<option value='{$k}'>{$v}</option>"; } ?>
+                                </select>
+                            </div>
+                            <div style="flex:1.5; min-width:150px;"><label style="font-size:10px; font-weight:800; color:#555; text-transform:uppercase;">Service Type</label>
+                                <select name="service_type" id="ui_service_type" class="u-field" style="background:#fefce8; color:#b45309; font-weight:bold;">
+                                    <?php foreach($settings['service_types'] as $k => $v) { echo "<option value='{$k}'>{$v}</option>"; } ?>
+                                </select>
+                            </div>
+                            <div id="ui_hotel_cat_box" style="flex:1.5; min-width:120px;"><label style="font-size:10px; font-weight:800; color:#555; text-transform:uppercase;">Hotel Category</label>
                                 <select name="hotel_category" class="u-field" style="background:#f0f7ff; font-weight:600; border-color:#bae6fd; color:#0369a1;">
                                     <?php foreach($settings['hotel_categories'] as $k => $c) { echo "<option value='{$k}'>{$c['name']}</option>"; } ?>
                                 </select>
                             </div>
                         </div>
-                        <div class="mini-toggles">
+                    </div>
+
+                    <div class="compact-box" id="box-rooms">
+                        <div class="compact-label">2. Rooms & Accommodation</div>
+                        <div class="mini-toggles" style="margin-top: 5px;">
                             <input type="radio" id="r_a" name="room_mode" value="auto" checked> <label for="r_a">AUTO ROOMS</label>
                             <input type="radio" id="r_c" name="room_mode" value="custom"> <label for="r_c">CUSTOM ROOMS</label>
                         </div>
@@ -53,8 +78,9 @@ function utpc_render_shortcode() {
                         </div>
                         <div id="div-r-c" class="hidden"><div id="list-r" class="builder-list"></div><button type="button" id="add-r" class="btn-add">+ Add Room</button></div>
                     </div>
-                    <div class="compact-box">
-                        <div class="compact-label">2. Transport</div>
+
+                    <div class="compact-box" id="box-transport">
+                        <div class="compact-label">3. Transport & Vehicle</div>
                         <div class="mini-toggles" style="margin-top: 5px;">
                             <input type="radio" id="v_a" name="vehicle_mode" value="auto" checked> <label for="v_a">AUTO VEHICLE</label>
                             <input type="radio" id="v_c" name="vehicle_mode" value="custom"> <label for="v_c">CUSTOM VEHICLE</label>
@@ -73,7 +99,7 @@ function utpc_render_shortcode() {
             <div id="utpc-results"></div>
         </div>
 
-        <?php if ($is_employee): ?>
+        <?php if ($can_book): ?>
         <div id="utpc-fixed-wrap" class="utpc-tab-content hidden">
             <form id="utpc-fixed-form">
                 <input type="hidden" name="calc_mode" value="fixed">
@@ -144,15 +170,12 @@ function utpc_render_shortcode() {
                 <div style="font-size:10px; color:#94a3b8; font-weight:700;">GSTIN: 19AXIPD7432L1Z5</div>
             </div>
             <div class="modal-body" style="padding: 15px; background:#f1f5f9; line-height:1.2; font-family:sans-serif;">
-                
                 <div style="background:#fff; border-radius:6px; padding:12px; box-shadow:0 2px 4px rgba(0,0,0,0.05); border:1px solid #e2e8f0; color:#1e293b;">
                     <div style="text-align:center; border-bottom:1px dashed #cbd5e1; padding-bottom:10px; margin-bottom:10px;">
                         <div style="margin:0 0 4px 0; color:#0369a1; font-size:16px; font-weight:800;"><?php echo esc_html($settings['popup_title']); ?></div>
-                        <div style="font-size:11px; color:#475569; font-weight:600; margin-bottom:2px;"><?php echo esc_html($settings['trip_duration']['label'] ?? '6 Night - 7 Days'); ?> | <?php echo esc_html($settings['popup_subtitle']); ?></div>
+                        <div id="m-serv-days" style="font-size:11px; color:#475569; font-weight:600; margin-bottom:2px;"></div>
                     </div>
-
                     <div id="modal-dynamic-content"></div>
-
                     <a href="#" id="m-wa-btn" target="_blank" class="btn-whatsapp" style="display:block; text-align:center; background:#25D366; color:#fff; text-decoration:none; padding:12px; border-radius:4px; font-weight:800; font-size:13px; margin-top:12px; box-shadow:0 2px 4px rgba(37,211,102,0.3);">ENQUIRE ON WHATSAPP</a>
                     <div class="policy-compact" style="font-size:10px; color:#64748b; margin-top:10px; text-align:center; border-top:1px solid #e2e8f0; padding-top:8px;"><?php echo wp_kses_post($settings['popup_note']); ?></div>
                 </div>
@@ -160,11 +183,11 @@ function utpc_render_shortcode() {
         </div>
     </div>
 
-    <?php if ($is_employee): ?>
+    <?php if ($can_book): ?>
     <div id="utpcCustomBookModal" class="ktc-modal">
         <div class="modal-content" style="max-width: 480px;">
             <div class="close-cb-modal close-modal" style="font-size:24px; font-weight:bold; cursor:pointer;">&times;</div>
-            <div class="modal-header"><h2>Confirm Custom Trip Booking</h2></div>
+            <div class="modal-header"><h2>Confirm Custom Booking</h2></div>
             <div class="modal-body" style="background:#f8fafc;">
                 <div id="cb_summary"></div>
                 <form id="utpc-custom-book-form">

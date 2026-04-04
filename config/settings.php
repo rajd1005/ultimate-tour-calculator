@@ -3,18 +3,33 @@ if (!defined('ABSPATH')) { exit; }
 
 return [
     // ---------------------------------------------------------
-    // 1. CORE COSTS & PROFIT
+    // 0. ROLE BASED ACCESS CONTROL (RBAC)
     // ---------------------------------------------------------
-    'base_cost_per_pax'     => 5000, 
-    'profit_margin_per_pax' => 5000, 
+    'role_settings' => [
+        // Managers see Agent/Profit columns AND the Booking Dashboard
+        'managers'  => ['administrator'], 
+        // Employees only see the Booking Dashboard (Agent/Profit is hidden)
+        'employees' => ['editor', 'author', 'shop_manager'], 
+    ],
 
     // ---------------------------------------------------------
-    // 2. TRIP DURATION SETTINGS
+    // 1. CORE COSTS & PROFIT
     // ---------------------------------------------------------
-    'trip_duration' => [
-        'nights' => 6,
-        'days'   => 7,
-        'label'  => '6 Night - 7 Days'
+    'base_cost_per_pax'     => 6000, 
+    'profit_margin_per_pax' => 6000, 
+
+    // ---------------------------------------------------------
+    // 2. LOCATIONS & SERVICE TYPES
+    // ---------------------------------------------------------
+    'pickup_locations' => [
+        'srinagar' => 'Srinagar R.S / Airport',
+        'jammu'    => 'Jammu R.S / Airport'
+    ],
+    
+    'service_types' => [
+        'both'  => 'Package (Hotel + MAP + Cab)',
+        'hotel' => 'Hotel + MAP Only',
+        'cab'   => 'Cab Only'
     ],
 
     // ---------------------------------------------------------
@@ -31,26 +46,47 @@ return [
     // 4. ROOM SETTINGS
     // ---------------------------------------------------------
     'rooms' => [
-        'standard' => [ 'name' => 'Deluxe Room 2/3P' , 'price' => 5000, 'capacity' => 3, 'max_qty' => 0 ],
-        'family'   => [ 'name' => 'Family Deluxe Room 4P', 'price' => 7000, 'capacity' => 4, 'max_qty' => 2 ],
+        'standard' => [ 'name' => 'Deluxe Room + MAP' , 'price' => 6000, 'capacity' => 3, 'max_qty' => 0 ],
+        'family'   => [ 'name' => 'Family Deluxe + MAP', 'price' => 7000, 'capacity' => 4, 'max_qty' => 2 ],
     ],
     
     // ---------------------------------------------------------
-    // 5. VEHICLE SETTINGS
+    // 5. VEHICLE SETTINGS (With Per Day & Location Pricing)
     // ---------------------------------------------------------
     'vehicles' => [
-        'dzire'   => [ 'name' => 'Dzire 4P', 'price' => 18900, 'capacity' => 4 ],
-        'innova'  => [ 'name' => 'Innova 7P',  'price' => 24500, 'capacity' => 7 ],
-        'urbania' => [ 'name' => 'Urbania 16P', 'price' => 43000, 'capacity' => 16 ],
+        'dzire'   => [ 
+            'name' => 'Dzire', 
+            'capacity' => 4, 
+            'price' => 0, 
+            'price_per_day' => ['srinagar' => 1800, 'jammu' => 3200] 
+        ],
+        'innova'  => [ 
+            'name' => 'Innova',  
+            'capacity' => 7, 
+            'price' => 0, 
+            'price_per_day' => ['srinagar' => 2700, 'jammu' => 4000] 
+        ],
+        'urbania' => [ 
+            'name' => 'Urbania', 
+            'capacity' => 15, 
+            'price' => 0, 
+            'price_per_day' => ['srinagar' => 6000, 'jammu' => 7500] 
+        ],
+        'Crysta' => [ 
+            'name' => 'Crysta', 
+            'capacity' => 7, 
+            'price' => 0, 
+            'price_per_day' => ['srinagar' => 3500, 'jammu' => 5500] 
+        ],
     ],
 
     // ---------------------------------------------------------
     // 6. HOTEL CATEGORIES
     // ---------------------------------------------------------
     'hotel_categories' => [
-        'budget' => [ 'name' => 'Budget Hotel', 'multiplier' => 1.0 ],
-        '3star'  => [ 'name' => '3 Star Hotel', 'multiplier' => 1.75 ],
-        '5star'  => [ 'name' => '5 Star Hotel', 'multiplier' => 2.50 ],
+        'budget' => [ 'name' => 'Budget Hotel + MAP', 'multiplier' => 1.0 ],
+        '3star'  => [ 'name' => '3 Star Hotel + MAP', 'multiplier' => 1.75 ],
+        '5star'  => [ 'name' => '5 Star Hotel + MAP', 'multiplier' => 2.50 ],
     ],
 
     // ---------------------------------------------------------
@@ -60,26 +96,28 @@ return [
     'popup_title'     => 'Kashmir Tour Package',
     'popup_subtitle'  => 'Daily departures from Jammu & Srinagar',
     
-    // New Inclusions & Exclusions
     'inclusions' => [
         'Jammu / Srinagar Pickup and drop',
         'Sightseeing & Transfers',
+        'Tripe to Gulmarg, Sonamarg, Srinagar Local sightseeing, Doodhpathri, Pahalgam, Vaishno Devi Darshan',
         'All Accommodation',
         'Breakfast & Dinner'
     ],
     'exclusions_note' => 'Anything Not mentioned is all exclusions',
-    
-    'popup_note'      => '<b>Note:</b> 5% GST extra. Child below 6 FREE.',
+    'popup_note'      => '<b>Note:</b> Child below 6 FREE., MAP = Daily Breakfast + Dinner',
 
     // ---------------------------------------------------------
-    // 8. FIXED DEPARTURES (Employee Booking System)
+    // 8. FIXED DEPARTURES
     // ---------------------------------------------------------
     'fixed_departures' => [
         'kashmir_aug' => [
-            'name'           => 'Kashmir Valley - 08th May',
-            'hotel_category' => 'budget',
-            'vehicles'       => [ 'urbania' => 1 ], 
-            'total_seats'    => 16
+            'name'            => 'Kashmir Valley with Vaishno Devi Darshan',
+            'date'            => '2024-05-08',
+            'hotel_category'  => 'budget',
+            'pickup_location' => 'jammu',
+            'trip_days'       => 8,
+            'vehicles'        => [ 'urbania' => 1 ], 
+            'total_seats'     => 15
         ],
     ]
 ];

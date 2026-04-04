@@ -54,7 +54,7 @@ $company_footer = "<hr><div style='font-size:11px; color:#64748b; margin-top:15p
 
 function utpc_handle_save_custom_booking() {
     check_ajax_referer('utpc_nonce', 'nonce');
-    if (!is_user_logged_in()) wp_send_json_error('Unauthorized');
+    if (!in_array(utpc_get_user_role_type(), ['manager', 'employee'])) wp_send_json_error('Unauthorized');
 
     global $company_footer;
 
@@ -73,6 +73,10 @@ function utpc_handle_save_custom_booking() {
     $email    = sanitize_email($_POST['bk_email']);
     $address  = sanitize_text_field($_POST['bk_address']);
     $child    = intval($_POST['bk_child']);
+    
+    $trip_days = intval($_POST['cb_days'] ?? 7);
+    $pickup_loc = sanitize_text_field($_POST['cb_pickup'] ?? 'srinagar');
+    $service_type = sanitize_text_field($_POST['cb_service'] ?? 'both');
 
     $discount_type = sanitize_text_field($_POST['bk_discount_type'] ?? 'flat');
     $discount_val  = floatval($_POST['bk_discount_val'] ?? 0);
@@ -104,6 +108,9 @@ function utpc_handle_save_custom_booking() {
             'rooms'           => $rms,
             'start_date'      => $start,
             'end_date'        => $end,
+            'trip_days'       => $trip_days,
+            'pickup_location' => $pickup_loc,
+            'service_type'    => $service_type,
             'base_price'      => $base_price,
             'discount_type'   => $discount_type,
             'discount_val'    => $discount_val,
@@ -117,10 +124,7 @@ function utpc_handle_save_custom_booking() {
 
     if ($post_id) { 
         if (!empty($email)) {
-            $admin_email = get_option('admin_email');
-            $site_name   = get_bloginfo('name');
-            $headers     = ['Content-Type: text/html; charset=UTF-8', 'From: ' . $site_name . ' <' . $admin_email . '>'];
-            
+            $headers     = ['Content-Type: text/html; charset=UTF-8'];
             $cust_subject = "Booking Confirmation: Custom Tour Package";
             $cust_msg = "<h3>Booking Confirmed!</h3><p>Dear <strong>{$customer}</strong>,</p><p>Your Custom Tour Package booking has been successfully confirmed.</p>
                          <ul>
@@ -137,6 +141,7 @@ function utpc_handle_save_custom_booking() {
                          <p>Thank you for choosing us!</p>{$company_footer}";
             wp_mail($email, $cust_subject, $cust_msg, $headers);
             
+            $admin_email = get_option('admin_email');
             $admin_subject = "New Custom Booking Alert";
             $admin_msg = "<h3>New Custom Booking Received</h3><p>A new custom booking was made by an employee.</p>
                           <ul>
@@ -157,7 +162,7 @@ function utpc_handle_save_custom_booking() {
 
 function utpc_handle_get_tour_details() {
     check_ajax_referer('utpc_nonce', 'nonce');
-    if (!is_user_logged_in()) wp_send_json_error('Unauthorized');
+    if (!in_array(utpc_get_user_role_type(), ['manager', 'employee'])) wp_send_json_error('Unauthorized');
 
     $tour_id = sanitize_text_field($_POST['tour_id'] ?? '');
     if (empty($tour_id)) wp_send_json_success('');
@@ -186,6 +191,7 @@ function utpc_handle_get_tour_details() {
         $email    = get_post_meta($b->ID, 'email', true);
         $address  = get_post_meta($b->ID, 'address', true);
         $child    = (int) get_post_meta($b->ID, 'child', true);
+        $service  = get_post_meta($b->ID, 'service_type', true) ?: 'both';
         
         $price      = (float) get_post_meta($b->ID, 'total_price', true);
         $total_paid = (float) get_post_meta($b->ID, 'total_paid', true);
@@ -236,7 +242,7 @@ function utpc_handle_get_tour_details() {
         $table_rows .= "<td style='padding:10px; border-bottom:1px solid #eee; text-align:center; min-width:80px;'>
             <button class='btn-view-receipt' style='background:#6366f1; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-size:10px; font-weight:bold; cursor:pointer; margin-bottom:4px; width:100%;' data-id='{$b->ID}' data-tour='{$tour_id}'>RECEIPT</button>
             <button class='btn-pay-booking' style='background:#10b981; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-size:10px; font-weight:bold; cursor:pointer; margin-bottom:4px; width:100%;' data-id='{$b->ID}' data-tot='{$price}' data-paid='{$total_paid}'>PAYMENT</button>
-            <button class='btn-edit-booking' style='background:#f59e0b; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-size:10px; font-weight:bold; cursor:pointer; margin-bottom:4px; width:100%;' data-id='{$b->ID}' data-tour='{$tour_id}' data-name='" . esc_attr($customer) . "' data-phone='" . esc_attr($phone) . "' data-email='" . esc_attr($email) . "' data-address='" . esc_attr($address) . "' data-pax='{$pax}' data-child='{$child}' data-rooms='" . esc_attr($rooms_raw) . "' data-roomkeys='" . esc_attr($room_keys) . "' data-vehkeys='" . esc_attr($veh_keys) . "' data-disctype='" . esc_attr($discount_type) . "' data-discval='{$discount_val}'>EDIT</button>
+            <button class='btn-edit-booking' style='background:#f59e0b; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-size:10px; font-weight:bold; cursor:pointer; margin-bottom:4px; width:100%;' data-id='{$b->ID}' data-tour='{$tour_id}' data-name='" . esc_attr($customer) . "' data-phone='" . esc_attr($phone) . "' data-email='" . esc_attr($email) . "' data-address='" . esc_attr($address) . "' data-pax='{$pax}' data-child='{$child}' data-rooms='" . esc_attr($rooms_raw) . "' data-roomkeys='" . esc_attr($room_keys) . "' data-vehkeys='" . esc_attr($veh_keys) . "' data-disctype='" . esc_attr($discount_type) . "' data-discval='{$discount_val}' data-service='{$service}'>EDIT</button>
             <button class='btn-resend-email' style='background:#3b82f6; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-size:10px; font-weight:bold; cursor:pointer; margin-bottom:4px; width:100%;' data-id='{$b->ID}' data-tour='{$tour_id}'>EMAIL</button>
             <button class='btn-delete-booking' style='background:#ef4444; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-size:10px; font-weight:bold; cursor:pointer; width:100%;' data-id='{$b->ID}'>DELETE</button>
         </td>";
@@ -291,7 +297,7 @@ function utpc_handle_get_tour_details() {
 
 function utpc_handle_get_receipt() {
     check_ajax_referer('utpc_nonce', 'nonce');
-    if (!is_user_logged_in()) wp_send_json_error('Unauthorized');
+    if (!in_array(utpc_get_user_role_type(), ['manager', 'employee'])) wp_send_json_error('Unauthorized');
 
     $booking_id = intval($_POST['booking_id']);
     $tour_id = sanitize_text_field($_POST['tour_id']);
@@ -431,7 +437,7 @@ function utpc_handle_get_receipt() {
 
 function utpc_handle_add_payment() {
     check_ajax_referer('utpc_nonce', 'nonce');
-    if (!is_user_logged_in()) wp_send_json_error('Unauthorized');
+    if (!in_array(utpc_get_user_role_type(), ['manager', 'employee'])) wp_send_json_error('Unauthorized');
 
     global $company_footer;
 
@@ -442,8 +448,17 @@ function utpc_handle_add_payment() {
     $total_price = (float) get_post_meta($booking_id, 'total_price', true);
     $total_paid  = (float) get_post_meta($booking_id, 'total_paid', true);
 
+    // --- STRICT BALANCE VALIDATION (BACKEND) ---
+    $current_balance = max(0, $total_price - $total_paid);
+    if ($current_balance <= 0) {
+        wp_send_json_error("This booking is already fully paid.");
+    }
+    if ($pay_amount > $current_balance) {
+        wp_send_json_error("Error: Payment amount (₹" . number_format($pay_amount) . ") exceeds the remaining balance (₹" . number_format($current_balance) . ").");
+    }
+
     $new_paid = $total_paid + $pay_amount;
-    $balance = max(0, $total_price - $new_paid);
+    $new_balance = max(0, $total_price - $new_paid);
 
     update_post_meta($booking_id, 'total_paid', $new_paid);
 
@@ -460,9 +475,7 @@ function utpc_handle_add_payment() {
 
     if (!empty($email)) {
         
-        $admin_email = get_option('admin_email');
-        $site_name   = get_bloginfo('name');
-        $headers     = ['Content-Type: text/html; charset=UTF-8', 'From: ' . $site_name . ' <' . $admin_email . '>'];
+        $headers = array('Content-Type: text/html; charset=UTF-8');
 
         $base_price      = (float) get_post_meta($booking_id, 'base_price', true);
         $discount_amount = (float) get_post_meta($booking_id, 'discount_amount', true);
@@ -480,13 +493,13 @@ function utpc_handle_add_payment() {
                 <li><strong>GST (5%):</strong> + ₹" . number_format($gst_amount) . "</li>
                 <li style='font-size:16px; margin-top:5px; border-top:1px solid #ccc; padding-top:5px;'><strong>Grand Total:</strong> ₹" . number_format($total_price) . "</li>
                 <li style='color:green; margin-top:5px;'><strong>Amount Paid:</strong> ₹" . number_format($new_paid) . "</li>
-                <li style='color:red;'><strong>Remaining Balance:</strong> ₹" . number_format($balance) . "</li>
+                <li style='color:red;'><strong>Remaining Balance:</strong> ₹" . number_format($new_balance) . "</li>
             </ul>
         </div>";
 
         $num_amount = number_format($pay_amount);
 
-        if ($balance <= 0) {
+        if ($new_balance <= 0) {
             $subject = "Full Payment Received! ($tour_name)";
             $msg = "<h3>Full Payment Confirmed!</h3><p>Dear <strong>{$customer}</strong>,</p><p>We have successfully received your payment of <strong>₹{$num_amount}</strong>.</p><p style='color:green;'><strong>Your trip is now fully paid!</strong> Thank you for completing your payments.</p>{$email_financials}{$company_footer}";
         } else {
@@ -500,7 +513,7 @@ function utpc_handle_add_payment() {
 
 function utpc_handle_resend_email() {
     check_ajax_referer('utpc_nonce', 'nonce');
-    if (!is_user_logged_in()) wp_send_json_error('Unauthorized');
+    if (!in_array(utpc_get_user_role_type(), ['manager', 'employee'])) wp_send_json_error('Unauthorized');
 
     global $company_footer;
 
@@ -546,9 +559,7 @@ function utpc_handle_resend_email() {
         </ul>
     </div>";
 
-    $admin_email = get_option('admin_email');
-    $site_name   = get_bloginfo('name');
-    $headers     = ['Content-Type: text/html; charset=UTF-8', 'From: ' . $site_name . ' <' . $admin_email . '>'];
+    $headers = array('Content-Type: text/html; charset=UTF-8');
 
     $cust_subject = "Booking Details: " . $tour_name;
     $cust_msg = "<h3>Your Booking Details</h3><p>Dear <strong>{$customer}</strong>,</p><p>Here are the details for your booking (<strong>{$tour_name}</strong>):</p>
@@ -563,19 +574,23 @@ function utpc_handle_resend_email() {
 
 function utpc_handle_update_booking() {
     check_ajax_referer('utpc_nonce', 'nonce');
-    if (!is_user_logged_in()) wp_send_json_error('Unauthorized');
+    if (!in_array(utpc_get_user_role_type(), ['manager', 'employee'])) wp_send_json_error('Unauthorized');
 
     $cfg = include(UTPC_PATH . 'config/settings.php');
     $booking_id = intval($_POST['booking_id']);
     $tour_id = sanitize_text_field($_POST['tour_id']);
     $new_pax = max(1, intval($_POST['bk_pax']));
     
+    $service_type = get_post_meta($booking_id, 'service_type', true) ?: 'both';
+    
     $new_rooms = $_POST['custom_rooms'] ?? [];
-    if(empty($new_rooms)) wp_send_json_error('Please select at least one room.');
+    if($service_type !== 'cab' && empty($new_rooms)) wp_send_json_error('Please select at least one room.');
 
-    $total_room_capacity = 0;
-    foreach ($new_rooms as $rk) { if (isset($cfg['rooms'][$rk])) $total_room_capacity += $cfg['rooms'][$rk]['capacity']; }
-    if ($total_room_capacity < $new_pax) wp_send_json_error("Capacity Error: The selected rooms can only accommodate {$total_room_capacity} persons, but you requested {$new_pax} Pax.");
+    if($service_type !== 'cab') {
+        $total_room_capacity = 0;
+        foreach ($new_rooms as $rk) { if (isset($cfg['rooms'][$rk])) $total_room_capacity += $cfg['rooms'][$rk]['capacity']; }
+        if ($total_room_capacity < $new_pax) wp_send_json_error("Capacity Error: The selected rooms can only accommodate {$total_room_capacity} persons, but you requested {$new_pax} Pax.");
+    }
 
     $old_pax = (int) get_post_meta($booking_id, 'pax', true);
     $old_base_price = (float) get_post_meta($booking_id, 'base_price', true);
@@ -584,39 +599,96 @@ function utpc_handle_update_booking() {
     $new_base_price = 0;
 
     if ($tour_id === 'custom_trip') {
-        $new_vehs = $_POST['custom_vehicles'] ?? [];
-        if(empty($new_vehs)) wp_send_json_error('Please select at least one vehicle.');
+        $trip_days  = (int) get_post_meta($booking_id, 'trip_days', true) ?: 7;
+        $pickup_loc = get_post_meta($booking_id, 'pickup_location', true) ?: 'srinagar';
         
-        $total_veh_capacity = 0;
-        foreach ($new_vehs as $vk) { if (isset($cfg['vehicles'][$vk])) $total_veh_capacity += $cfg['vehicles'][$vk]['capacity']; }
-        if ($total_veh_capacity < $new_pax) wp_send_json_error("Capacity Error: The selected vehicles can only accommodate {$total_veh_capacity} persons, but you requested {$new_pax} Pax.");
-
-        $old_rooms_raw = get_post_meta($booking_id, 'rooms', true); $old_veh_raw = get_post_meta($booking_id, 'vehicle', true);
-        $old_room_cost = utpc_get_cost_from_raw($old_rooms_raw, $cfg['rooms']); $old_veh_cost = utpc_get_cost_from_raw($old_veh_raw, $cfg['vehicles']);
-        $old_base_cost = $old_veh_cost + $old_room_cost + ($cfg['base_cost_per_pax'] * $old_pax);
-
-        $implied_multiplier = 1.0;
-        if ($old_base_cost > 0) { $agent_total = $old_base_price - ($cfg['profit_margin_per_pax'] * $old_pax); $implied_multiplier = max(0, $agent_total / $old_base_cost); }
-
-        $new_room_cost = utpc_get_cost_from_keys($new_rooms, $cfg['rooms']); $new_veh_cost = utpc_get_cost_from_keys($new_vehs, $cfg['vehicles']);
-        $new_base_cost = $new_veh_cost + $new_room_cost + ($cfg['base_cost_per_pax'] * $new_pax);
-
-        $new_agent_price = $new_base_cost * $implied_multiplier;
-        $pp_base = ceil(($new_agent_price / $new_pax + $cfg['profit_margin_per_pax']) / 500) * 500;
-        $new_base_price = $pp_base * $new_pax;
-
-        $new_rooms_display = utpc_get_display_from_keys($new_rooms, $cfg['rooms']); $new_vehs_display = utpc_get_display_from_keys($new_vehs, $cfg['vehicles']);
-        update_post_meta($booking_id, 'rooms', $new_rooms_display); update_post_meta($booking_id, 'vehicle', $new_vehs_display);
-
-    } else {
-        $pax_diff = $new_pax - $old_pax;
-        if ($pax_diff > 0) {
-            $booked_already = utpc_get_booked_seats($tour_id); $total_allowed = $cfg['fixed_departures'][$tour_id]['total_seats'];
-            if (($booked_already + $pax_diff) > $total_allowed) { $left = $total_allowed - $booked_already; wp_send_json_error("Not enough seats left! You are trying to add {$pax_diff} extra people, but only {$left} seats are available."); }
+        $mapped_vehicles = [];
+        foreach ($cfg['vehicles'] as $k => $v) {
+            $mapped_vehicles[$k] = $v;
+            $daily = $v['price_per_day'][$pickup_loc] ?? ($v['price'] / 7);
+            $mapped_vehicles[$k]['price'] = $daily * $trip_days;
         }
 
-        $tour = $cfg['fixed_departures'][$tour_id]; $total_vehicle_cost = 0; 
-        foreach ($tour['vehicles'] as $v_key => $qty) { $total_vehicle_cost += ($cfg['vehicles'][$v_key]['price'] * $qty); }
+        $new_vehs = $_POST['custom_vehicles'] ?? [];
+        if($service_type !== 'hotel' && empty($new_vehs)) wp_send_json_error('Please select at least one vehicle.');
+        
+        if($service_type !== 'hotel') {
+            $total_veh_capacity = 0;
+            foreach ($new_vehs as $vk) { if (isset($mapped_vehicles[$vk])) $total_veh_capacity += $mapped_vehicles[$vk]['capacity']; }
+            if ($total_veh_capacity < $new_pax) wp_send_json_error("Capacity Error: The selected vehicles can only accommodate {$total_veh_capacity} persons, but you requested {$new_pax} Pax.");
+        }
+
+        if ($service_type === 'hotel') { $new_vehs = []; }
+        if ($service_type === 'cab') { $new_rooms = []; }
+
+        $old_rooms_raw = get_post_meta($booking_id, 'rooms', true); 
+        $old_veh_raw = get_post_meta($booking_id, 'vehicle', true);
+        
+        $old_room_cost = ($service_type === 'cab') ? 0 : utpc_get_cost_from_raw($old_rooms_raw, $cfg['rooms']); 
+        $old_veh_cost = ($service_type === 'hotel') ? 0 : utpc_get_cost_from_raw($old_veh_raw, $mapped_vehicles);
+        
+        $base_pax_cost = ($service_type === 'cab') ? 0 : $cfg['base_cost_per_pax'];
+        $old_base_cost = $old_veh_cost + $old_room_cost + ($base_pax_cost * $old_pax);
+
+        $implied_multiplier = 1.0;
+        if ($old_base_cost > 0) { 
+            $profit = ($service_type === 'cab' || $service_type === 'hotel') ? ($cfg['profit_margin_per_pax'] * 0.5) : $cfg['profit_margin_per_pax'];
+            $agent_total = $old_base_price - ($profit * $old_pax); 
+            $implied_multiplier = max(0, $agent_total / $old_base_cost); 
+        }
+
+        $new_room_cost = ($service_type === 'cab') ? 0 : utpc_get_cost_from_keys($new_rooms, $cfg['rooms']); 
+        $new_veh_cost = ($service_type === 'hotel') ? 0 : utpc_get_cost_from_keys($new_vehs, $mapped_vehicles);
+        $new_base_cost = $new_veh_cost + $new_room_cost + ($base_pax_cost * $new_pax);
+
+        $profit = ($service_type === 'cab' || $service_type === 'hotel') ? ($cfg['profit_margin_per_pax'] * 0.5) : $cfg['profit_margin_per_pax'];
+        $new_agent_price = $new_base_cost * $implied_multiplier;
+        $pp_base = ceil(($new_agent_price / $new_pax + $profit) / 500) * 500;
+        $new_base_price = $pp_base * $new_pax;
+
+        $new_rooms_display = ($service_type === 'cab') ? 'N/A' : utpc_get_display_from_keys($new_rooms, $cfg['rooms']); 
+        $new_vehs_display = ($service_type === 'hotel') ? 'N/A' : utpc_get_display_from_keys($new_vehs, $mapped_vehicles);
+        
+        update_post_meta($booking_id, 'rooms', $new_rooms_display); 
+        update_post_meta($booking_id, 'vehicle', $new_vehs_display);
+
+    } else {
+        
+        // FIXED DEPARTURES UPDATE LOGIC
+        $pax_diff = $new_pax - $old_pax;
+        if ($pax_diff > 0) {
+            $booked_already = utpc_get_booked_seats($tour_id);
+            $total_allowed = $cfg['fixed_departures'][$tour_id]['total_seats'];
+            if (($booked_already + $pax_diff) > $total_allowed) {
+                $left = $total_allowed - $booked_already;
+                wp_send_json_error("Not enough seats left! You are trying to add {$pax_diff} extra people, but only {$left} seats are available.");
+            }
+        }
+
+        $tour = $cfg['fixed_departures'][$tour_id];
+        
+        $trip_days = intval($tour['trip_days'] ?? 7);
+        $pickup_loc = sanitize_text_field($tour['pickup_location'] ?? 'srinagar');
+        $tour_date = sanitize_text_field($tour['date'] ?? date('Y-m-d'));
+        
+        $surcharge_percent = 0;
+        $m_d = date('m-d', strtotime($tour_date));
+        foreach ($cfg['seasonal_surcharges'] as $season) {
+            $start = $season['start']; $end = $season['end'];
+            if ($start > $end) {
+                if ($m_d >= $start || $m_d <= $end) { $surcharge_percent = $season['surcharge_percent']; break; }
+            } else {
+                if ($m_d >= $start && $m_d <= $end) { $surcharge_percent = $season['surcharge_percent']; break; }
+            }
+        }
+        $season_multiplier = 1 + ($surcharge_percent / 100);
+        $hotel_multiplier = $cfg['hotel_categories'][$tour['hotel_category']]['multiplier'] ?? 1.0;
+
+        $total_vehicle_cost = 0; 
+        foreach ($tour['vehicles'] as $v_key => $qty) { 
+            $daily = $cfg['vehicles'][$v_key]['price_per_day'][$pickup_loc] ?? ($cfg['vehicles'][$v_key]['price'] / 7);
+            $total_vehicle_cost += ($daily * $trip_days * $qty); 
+        }
         $veh_cost_per_seat = $total_vehicle_cost / max(1, intval($tour['total_seats']));
 
         $new_room_cost = utpc_get_cost_from_keys($new_rooms, $cfg['rooms']);
@@ -651,7 +723,7 @@ function utpc_handle_update_booking() {
 
 function utpc_handle_delete_booking() {
     check_ajax_referer('utpc_nonce', 'nonce');
-    if (!is_user_logged_in()) wp_send_json_error('Unauthorized');
+    if (!in_array(utpc_get_user_role_type(), ['manager', 'employee'])) wp_send_json_error('Unauthorized');
     $booking_id = intval($_POST['booking_id']);
     if (wp_delete_post($booking_id, true)) wp_send_json_success('Booking permanently deleted.');
     else wp_send_json_error('Failed to delete booking.');
@@ -667,8 +739,12 @@ function utpc_handle_ajax_calculation() {
     $mode = $data['calc_mode'] ?? 'custom';
 
     global $company_footer;
+    
+    $role_type = utpc_get_user_role_type();
+    $is_manager = ($role_type === 'manager');
+    $can_book   = in_array($role_type, ['manager', 'employee']);
 
-    if (isset($_POST['is_booking']) && $_POST['is_booking'] == 'true' && is_user_logged_in()) {
+    if (isset($_POST['is_booking']) && $_POST['is_booking'] == 'true' && $can_book) {
         $pax         = intval($data['tour_pax']);
         $tour_id     = sanitize_text_field($data['fixed_tour']);
         $tot_with_gst = floatval($_POST['final_price']); 
@@ -725,18 +801,16 @@ function utpc_handle_ajax_calculation() {
         ]);
         
         if ($post_id) { 
-            $admin_email = get_option('admin_email');
-            $site_name   = get_bloginfo('name');
-            $headers     = ['Content-Type: text/html; charset=UTF-8', 'From: ' . $site_name . ' <' . $admin_email . '>'];
-            
+            $headers     = array('Content-Type: text/html; charset=UTF-8');
             $tour_name   = $cfg['fixed_departures'][$tour_id]['name'] ?? 'Fixed Departure';
             
             $cust_subject = "Booking Confirmation: " . $tour_name;
             $cust_msg = "<h3>Booking Confirmed!</h3><p>Dear <strong>{$customer}</strong>,</p><p>Your booking for <strong>{$tour_name}</strong> has been successfully confirmed.</p><ul><li><strong>Total Person:</strong> {$pax} Adults" . ($bk_child > 0 ? ", {$bk_child} Child" : "") . "</li></ul><hr><ul>" . ($discount_amount > 0 ? "<li style='color:green;'><strong>Discount Applied:</strong> - ₹" . number_format($discount_amount) . "</li>" : "") . "<li><strong>Total Amount (Inc GST):</strong> ₹" . number_format($final_tot) . "</li></ul><p>Thank you for choosing us!</p>{$company_footer}";
             wp_mail($bk_email, $cust_subject, $cust_msg, $headers);
             
+            $admin_email = get_option('admin_email');
             $admin_subject = "New Booking Alert: " . $tour_name;
-            $admin_msg = "<h3>New Booking Received</h3><p>A new fixed departure booking was made by an employee.</p><ul><li><strong>Customer:</strong> {$customer}</li><li><strong>Phone:</strong> {$bk_phone}</li><li><strong>Email:</strong> {$bk_email}</li><li><strong>Total Person:</strong> {$pax} Adults" . ($bk_child > 0 ? ", {$bk_child} Child" : "") . "</li><li><strong>Total Price (Inc GST):</strong> ₹" . number_format($final_tot) . "</li></ul>{$company_footer}";
+            $admin_msg = "<h3>New Booking Received</h3><p>A new fixed departure booking was made by an employee.</p><ul><li><strong>Customer:</strong> {$customer}</li><li><strong>Phone:</strong> {$bk_phone}</li><li><strong>Email:</strong> {$bk_email}</li><li><strong>Address:</strong> {$bk_address}</li><li><strong>Total Person:</strong> {$pax} Adults" . ($bk_child > 0 ? ", {$bk_child} Child" : "") . "</li><li><strong>Total Price (Inc GST):</strong> ₹" . number_format($final_tot) . "</li></ul>{$company_footer}";
             wp_mail($admin_email, $admin_subject, $admin_msg, $headers);
 
             wp_send_json_success('<div style="background:#dcfce7; color:#166534; padding:15px; border-radius:6px; font-weight:bold; text-align:center;">Booking Confirmed! (ID: #'.$post_id.')</div>'); 
@@ -747,6 +821,7 @@ function utpc_handle_ajax_calculation() {
     $results = UTPC_Calculator::process_calculation($data);
     if (empty($results)) wp_send_json_success('<div style="padding:15px;text-align:center;color:red;">No packages matched your configuration.</div>');
 
+    // DYNAMIC GST ADDITION FOR FRONTEND
     foreach ($results as &$r) {
         $base_pp = $r['pp'];
         $r['pp'] = round($base_pp * 1.05); 
@@ -757,7 +832,6 @@ function utpc_handle_ajax_calculation() {
     unset($r);
 
     ob_start();
-    $is_admin = is_user_logged_in();
 
     if ($mode === 'fixed') {
         $row = $results[0]; 
@@ -766,35 +840,40 @@ function utpc_handle_ajax_calculation() {
         
         echo '<div class="res-container" style="padding:10px; background:#fff; border:1px solid #e2e8f0; border-radius:6px; margin-top:15px; font-family:sans-serif; line-height:1.2;">';
         echo "<div style='text-align:center; border-bottom:1px dashed #cbd5e1; padding-bottom:6px; margin-bottom:6px;'><h3 style='margin:0; color:#0369a1; font-size:14px; font-weight:800;'>" . esc_html($row['tour_name']) . "</h3></div>";
+        echo "<div style='text-align:center; font-size:11px; color:#64748b; margin-bottom:10px;'><b>Dates:</b> {$row['start_date']} ➔ {$row['end_date']} | <b>Season:</b> <span style='color:#ca8a04; font-weight:bold;'>{$row['season_name']}</span></div>";
         
         echo "<table style='width:100%; border-collapse:collapse; background:#f8fafc; font-size:10px !important; color:#334155; margin-bottom:6px; border:1px solid #e2e8f0; border-radius:4px;'>";
         echo "<tr><td style='padding:4px; border-bottom:1px solid #e2e8f0;'><b>Veh:</b> {$row['v_h']}</td></tr>";
         echo "<tr><td style='padding:4px;'><b>Rooms:</b> {$row['r_h']}</td></tr>";
         echo "</table>";
         
-        echo "<div style='background:#f1f5f9; padding:8px; border-radius:6px; border:1px solid #cbd5e1; margin-bottom:10px;'>";
-        echo "  <div style='font-size:9px; font-weight:800; color:#475569; margin-bottom:6px; text-transform:uppercase;'>Customer Details Required</div>";
-        echo "  <div style='display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px;'>";
-        echo "      <div style='flex:1; min-width:100px;'><input type='text' id='bk_customer_name' class='u-field' placeholder='Customer Name *' required style='height:28px; font-size:11px;'></div>";
-        echo "      <div style='flex:1; min-width:100px;'><input type='text' id='bk_phone' class='u-field' placeholder='Phone Number *' required style='height:28px; font-size:11px;'></div>";
-        echo "      <div style='flex:1; min-width:100px;'><input type='email' id='bk_email' class='u-field' placeholder='Email ID *' required style='height:28px; font-size:11px;'></div>";
-        echo "  </div>";
-        echo "  <div style='display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px;'>";
-        echo "      <div style='flex:3; min-width:150px;'><input type='text' id='bk_address' class='u-field' placeholder='Full Address *' required style='height:28px; font-size:11px;'></div>";
-        echo "      <div style='flex:1; min-width:70px;'><input type='number' id='bk_child' class='u-field' placeholder='Child' value='0' min='0' style='height:28px; font-size:11px;'></div>";
-        echo "  </div>";
-        echo "  <div style='display:flex; flex-wrap:wrap; gap:6px; border-top:1px dashed #cbd5e1; padding-top:6px;'>";
-        echo "      <div style='flex:1; min-width:100px;'><select id='bk_discount_type' class='u-field' style='height:28px; font-size:11px;'><option value='flat'>Discount: Flat (₹)</option><option value='percent'>Discount: Percent (%)</option></select></div>";
-        echo "      <div style='flex:1; min-width:100px;'><input type='number' id='bk_discount_val' class='u-field' placeholder='Discount Value' value='0' min='0' step='any' style='height:28px; font-size:11px;'></div>";
-        echo "  </div>";
-        echo "</div>";
+        if ($can_book) {
+            echo "<div style='background:#f1f5f9; padding:8px; border-radius:6px; border:1px solid #cbd5e1; margin-bottom:10px;'>";
+            echo "  <div style='font-size:9px; font-weight:800; color:#475569; margin-bottom:6px; text-transform:uppercase;'>Customer Details Required</div>";
+            echo "  <div style='display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px;'>";
+            echo "      <div style='flex:1; min-width:100px;'><input type='text' id='bk_customer_name' class='u-field' placeholder='Customer Name *' required style='height:28px; font-size:11px;'></div>";
+            echo "      <div style='flex:1; min-width:100px;'><input type='text' id='bk_phone' class='u-field' placeholder='Phone Number *' required style='height:28px; font-size:11px;'></div>";
+            echo "      <div style='flex:1; min-width:100px;'><input type='email' id='bk_email' class='u-field' placeholder='Email ID *' required style='height:28px; font-size:11px;'></div>";
+            echo "  </div>";
+            echo "  <div style='display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px;'>";
+            echo "      <div style='flex:3; min-width:150px;'><input type='text' id='bk_address' class='u-field' placeholder='Full Address *' required style='height:28px; font-size:11px;'></div>";
+            echo "      <div style='flex:1; min-width:70px;'><input type='number' id='bk_child' class='u-field' placeholder='Child' value='0' min='0' style='height:28px; font-size:11px;'></div>";
+            echo "  </div>";
+            echo "  <div style='display:flex; flex-wrap:wrap; gap:6px; border-top:1px dashed #cbd5e1; padding-top:6px;'>";
+            echo "      <div style='flex:1; min-width:100px;'><select id='bk_discount_type' class='u-field' style='height:28px; font-size:11px;'><option value='flat'>Discount: Flat (₹)</option><option value='percent'>Discount: Percent (%)</option></select></div>";
+            echo "      <div style='flex:1; min-width:100px;'><input type='number' id='bk_discount_val' class='u-field' placeholder='Discount Value' value='0' min='0' step='any' style='height:28px; font-size:11px;'></div>";
+            echo "  </div>";
+            echo "</div>";
+        }
         
         echo "<div style='font-size:11px !important; margin-bottom:6px;'>";
         echo "<div style='display:flex; justify-content:space-between; margin-bottom:2px; color:#475569;'><div>Base:</div> <div>₹".number_format($base_tot)." <div style='display:inline; font-size:8px !important;'>(".number_format($row['base_pp'])." PP)</div></div></div>";
         echo "<div style='display:flex; justify-content:space-between; margin-bottom:4px; color:#475569; border-bottom:1px dashed #cbd5e1; padding-bottom:4px;'><div>GST:</div> <div>₹".number_format($gst_tot)." <div style='display:inline; font-size:8px !important;'>(".number_format($row['gst_pp'])." PP)</div></div></div>";
         echo "<div style='display:flex; justify-content:space-between; align-items:center; margin-top:4px;'>";
         echo "  <div style='font-size:14px !important; font-weight:800; color:#0f172a;'>Total: <strong style='color:#16a34a;'>₹".number_format($row['tot'])."</strong> <div style='display:inline; font-size:10px !important; color:#64748b;'>(₹".number_format($row['pp'])." PP)</div></div>";
-        echo "  <button type='button' id='btn-confirm-book' data-price='{$row['tot']}' class='btn-main' style='border:none; cursor:pointer; padding:6px 12px !important; font-size:10px !important; width:auto !important; margin:0 !important;'>CONFIRM BOOKING</button>";
+        if ($can_book) {
+            echo "  <button type='button' id='btn-confirm-book' data-price='{$row['tot']}' class='btn-main' style='border:none; cursor:pointer; padding:6px 12px !important; font-size:10px !important; width:auto !important; margin:0 !important;'>CONFIRM BOOKING</button>";
+        }
         echo "</div></div></div>";
     } 
     else {
@@ -803,7 +882,8 @@ function utpc_handle_ajax_calculation() {
 
         echo '<div class="res-container"><table class="tour-table"><thead><tr>';
         echo '<th>Rooms Breakdown</th><th>Vehicle Type</th><th style="min-width:90px;">Price PP</th><th>Total (Inc GST)</th>';
-        if ($is_admin) echo '<th>Agent</th><th>Profit</th><th style="text-align:center;">Action</th>';
+        if ($is_manager) echo '<th>Agent</th><th>Profit</th>';
+        if ($can_book) echo '<th style="text-align:center;">Action</th>';
         echo '</tr></thead><tbody>';
 
         foreach ($results as $row) {
@@ -822,8 +902,11 @@ function utpc_handle_ajax_calculation() {
             $safe_end     = esc_attr($row['end_date']);
             $safe_season  = esc_attr($row['season_name']);
             $safe_surch   = esc_attr($row['surcharge_percent']);
+            $safe_days    = esc_attr($row['trip_days'] ?? 7);
+            $safe_pickup  = esc_attr($row['pickup_loc'] ?? 'srinagar');
+            $safe_service = esc_attr($row['service_type'] ?? 'both');
 
-            echo "<tr class='utpc-row' data-hotel='{$safe_hotel}' data-pax='{$safe_pax}' data-veh='{$safe_veh}' data-rms='{$safe_rms}' data-pp='{$safe_pp}' data-tot='{$row['tot']}' data-start='{$safe_start}' data-end='{$safe_end}' data-season-name='{$safe_season}' data-surcharge-percent='{$safe_surch}' data-basepp='{$row['base_pp']}' data-gstpp='{$row['gst_pp']}'>";
+            echo "<tr class='utpc-row' data-hotel='{$safe_hotel}' data-pax='{$safe_pax}' data-veh='{$safe_veh}' data-rms='{$safe_rms}' data-pp='{$safe_pp}' data-tot='{$row['tot']}' data-start='{$safe_start}' data-end='{$safe_end}' data-season-name='{$safe_season}' data-surcharge-percent='{$safe_surch}' data-basepp='{$row['base_pp']}' data-gstpp='{$row['gst_pp']}' data-days='{$safe_days}' data-pickup='{$safe_pickup}' data-service='{$safe_service}'>";
             echo "<td class='col-adaptive'>{$r_h}</td><td class='col-adaptive'>{$v_h}</td>";
             
             echo "<td class='price-col'>
@@ -833,8 +916,10 @@ function utpc_handle_ajax_calculation() {
                   
             echo "<td class='price-col'>₹{$tot_f}</td>";
             
-            if ($is_admin) {
+            if ($is_manager) {
                 echo "<td class='col-nowrap' style='background:#fffbea;'>₹".number_format($row['at'])."</td><td class='col-nowrap' style='background:#f0fdf4; color:green; font-weight:700;'>₹".number_format($row['pt'],0)."</td>";
+            }
+            if ($can_book) {
                 echo "<td style='text-align:center;'><button class='btn-book-custom' style='background:#0284c7; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-size:10px; font-weight:bold; cursor:pointer;' data-hotel='{$safe_hotel}' data-pax='{$safe_pax}' data-veh='{$safe_veh}' data-rms='{$safe_rms}' data-pp='{$safe_pp}' data-tot='{$row['tot']}' data-start='{$safe_start}' data-end='{$safe_end}' data-basepp='{$row['base_pp']}' data-gstpp='{$row['gst_pp']}'>BOOK</button></td>";
             }
             echo "</tr>";
