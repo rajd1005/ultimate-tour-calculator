@@ -230,7 +230,7 @@ jQuery(document).ready(function($) {
     // ==========================================
     // FIXED DEPARTURE BOOKING
     // ==========================================
-    $('#add-f-r').click(function() { $('#list-f-r').append($('#tpl-room-row').html()); });
+    $('#add-f-r').click(function() { $('#list-f-r').append($('#tpl-fixed-room-row').html()); });
     $('#fixed_tour_select').change(function() {
         let maxLeft = $(this).find(':selected').data('left') || 0;
         $('#max-pax-label').text(maxLeft);
@@ -323,7 +323,11 @@ jQuery(document).ready(function($) {
         }).fail(function() { resDiv.html('<div style="color:red; text-align:center; padding:15px;">A server error occurred while fetching the details.</div>'); });
     });
 
-    $('#add-edit-f-r').click(function() { $('#edit-list-f-r').append($('#tpl-room-row').html()); });
+    $('#add-edit-f-r').click(function() { 
+    let tid = $('#edit_tour_id').val();
+    if(tid === 'custom_trip') { $('#edit-list-f-r').append($('#tpl-room-row').html()); } 
+    else { $('#edit-list-f-r').append($('#tpl-fixed-room-row').html()); }
+    });
     $('#add-edit-f-v').click(function() { $('#edit-list-f-v').append($('#tpl-veh-row').html()); });
 
     // EDIT MODAL
@@ -350,7 +354,11 @@ jQuery(document).ready(function($) {
             let roomArray = String(rawRoomKeys).split(',');
             roomArray.forEach(function(room) {
                 room = room.trim();
-                if(room) { let newRow = $($('#tpl-room-row').html()); newRow.find('select').val(room); $('#edit-list-f-r').append(newRow); }
+                if(room) { 
+                    let newRow = tid === 'custom_trip' ? $($('#tpl-room-row').html()) : $($('#tpl-fixed-room-row').html()); 
+                    newRow.find('select').val(room); 
+                    $('#edit-list-f-r').append(newRow); 
+                }
             });
         }
 
