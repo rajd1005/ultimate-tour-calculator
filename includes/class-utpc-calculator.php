@@ -71,10 +71,15 @@ class UTPC_Calculator {
         $start_date_str = date('d M Y', strtotime($tour_date));
         $end_date_str = date('d M Y', strtotime($tour_date . " + " . ($trip_days - 1) . " days"));
 
+        $vehicle_names = [];
+        foreach ($tour['vehicles'] as $v_key => $vqty) {
+            $vehicle_names[] = $vqty . "x " . ($cfg['vehicles'][$v_key]['name'] ?? $v_key);
+        }
+
         return [[
             'tour_name' => $tour['name'],
-            'v_h' => "<span class='u-badge badge-veh'>Included in Package</span>",
-            'v_r' => 'Included',
+            'v_h' => "<span class='u-badge badge-veh'>" . implode(', ', $vehicle_names) . "</span>",
+            'v_r' => implode(', ', $vehicle_names),
             'r_h' => "<div class='badge-list'>$room_html</div>",
             'r_r' => implode(', ', $room_raw),
             'pp'  => $base_pp, 
