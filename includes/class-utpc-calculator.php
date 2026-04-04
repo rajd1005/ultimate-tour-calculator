@@ -44,37 +44,38 @@ class UTPC_Calculator {
         $pickup_loc = sanitize_text_field($tour['pickup_location'] ?? 'srinagar');
         
         $season_info = self::get_season_info($tour_date, $cfg['seasonal_surcharges']);
+        
+        $total_vehicle_cost = 0; $vehicle_names = [];
+        foreach ($tour['vehicles'] as $v_key => $qty) {
+            $daily = $cfg['vehicles'][$v_key]['price_per_day'][$pickup_loc] ?? ($cfg['vehicles'][$v_key]['price'] / 7);
+            $total_vehicle_cost += ($daily * $trip_days * $qty);
+            $vehicle_names[] = $qty . "x " . $cfg['vehicles'][$v_key]['name'];
+        }
+        $veh_cost_per_seat = $total_vehicle_cost / max(1, intval($tour['total_seats']));
 
         $rooms = $data['custom_rooms'] ?? [];
         if (empty($rooms)) return [];
 
-        $total_cost = 0; $room_html = ""; $room_raw = [];
+        $room_cost = 0; $room_html = ""; $room_raw = [];
         $counts = array_count_values((array)$rooms);
-        
-        // Calculate price strictly based on selected sharing options
         foreach ($counts as $k => $qty) {
-            if (!isset($cfg['fixed_sharing_rooms'][$k])) continue;
-            
-            $cap = $cfg['fixed_sharing_rooms'][$k]['capacity'];
-            $pp_price = $tour['sharing_prices'][$k] ?? 0;
-            
-            // Base Cost = Per Person Price * Capacity * Number of rooms selected
-            $total_cost += ($pp_price * $cap * $qty);
-            
-            $name = $cfg['fixed_sharing_rooms'][$k]['name'];
+            if (!isset($cfg['rooms'][$k])) continue;
+            $room_cost += $qty * $cfg['rooms'][$k]['price'];
+            $name = $cfg['rooms'][$k]['name'];
             $room_html .= "<span class='u-badge badge-room-std'>{$qty}x {$name}</span> ";
             $room_raw[] = "{$qty}x {$name}";
         }
 
-        $base_pp = $tp > 0 ? ($total_cost / $tp) : 0;
+        $base_cost = ($veh_cost_per_seat * $tp) + $room_cost + ($cfg['base_cost_per_pax'] * $tp);
+        $hotel_multiplier = $cfg['hotel_categories'][$tour['hotel_category']]['multiplier'] ?? 1.0;
+        
+        // Apply Season & Hotel Multiplier
+        $agent_price = $base_cost * $hotel_multiplier * $season_info['multiplier']; 
+        
+        $pp = ceil(($agent_price / $tp + $cfg['profit_margin_per_pax']) / 500) * 500;
         
         $start_date_str = date('d M Y', strtotime($tour_date));
         $end_date_str = date('d M Y', strtotime($tour_date . " + " . ($trip_days - 1) . " days"));
-
-        $vehicle_names = [];
-        foreach ($tour['vehicles'] as $v_key => $vqty) {
-            $vehicle_names[] = $vqty . "x " . ($cfg['vehicles'][$v_key]['name'] ?? $v_key);
-        }
 
         return [[
             'tour_name' => $tour['name'],
@@ -82,8 +83,8 @@ class UTPC_Calculator {
             'v_r' => implode(', ', $vehicle_names),
             'r_h' => "<div class='badge-list'>$room_html</div>",
             'r_r' => implode(', ', $room_raw),
-            'pp'  => $base_pp, 
-            'tot' => $total_cost, 
+            'pp'  => $pp, 
+            'tot' => $pp * $tp, 
             'tp'  => $tp,
             'start_date' => $start_date_str,
             'end_date'   => $end_date_str,

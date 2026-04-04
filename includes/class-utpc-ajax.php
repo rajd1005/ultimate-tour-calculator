@@ -204,8 +204,7 @@ function utpc_handle_get_tour_details() {
         if(empty($customer) || $customer === 'Unknown') $customer = "Booking #" . $b->ID;
 
         $rooms_raw = get_post_meta($b->ID, 'rooms', true);
-        $room_config = $is_custom ? $cfg['rooms'] : array_merge($cfg['rooms'] ?? [], $cfg['fixed_sharing_rooms'] ?? []);
-        $room_keys_arr = utpc_extract_keys($rooms_raw, $room_config);
+        $room_keys_arr = utpc_extract_keys($rooms_raw, $cfg['rooms']);
         $room_keys = implode(',', $room_keys_arr);
         
         $veh_raw = ''; $veh_keys = '';
@@ -222,7 +221,7 @@ function utpc_handle_get_tour_details() {
             $room_counts = array_count_values($room_keys_arr);
             $room_text = [];
             foreach($room_counts as $rk => $rqty) {
-                $rname = reset(explode(' ', $room_config[$rk]['name'] ?? $rk));
+                $rname = reset(explode(' ', $cfg['rooms'][$rk]['name'] ?? $rk));
                 $room_text[] = "<div style='display:inline-block; background:#f1f5f9; padding:2px 6px; border-radius:4px; margin:2px 0; border:1px solid #e2e8f0;'>{$rqty}x {$rname}</div>";
             }
             $rooms_display = implode('<br>', $room_text);
@@ -587,10 +586,9 @@ function utpc_handle_update_booking() {
     $new_rooms = $_POST['custom_rooms'] ?? [];
     if($service_type !== 'cab' && empty($new_rooms)) wp_send_json_error('Please select at least one room.');
 
-    $room_config = ($tour_id === 'custom_trip') ? $cfg['rooms'] : ($cfg['fixed_sharing_rooms'] ?? []);
     if($service_type !== 'cab') {
         $total_room_capacity = 0;
-        foreach ($new_rooms as $rk) { if (isset($room_config[$rk])) $total_room_capacity += $room_config[$rk]['capacity']; }
+        foreach ($new_rooms as $rk) { if (isset($cfg['rooms'][$rk])) $total_room_capacity += $cfg['rooms'][$rk]['capacity']; }
         if ($total_room_capacity < $new_pax) wp_send_json_error("Capacity Error: The selected rooms can only accommodate {$total_room_capacity} persons, but you requested {$new_pax} Pax.");
     }
 
@@ -669,18 +667,37 @@ function utpc_handle_update_booking() {
 
         $tour = $cfg['fixed_departures'][$tour_id];
         
-        $total_cost = 0;
-        foreach (array_count_values((array)$new_rooms) as $rk => $qty) {
-            if(isset($cfg['fixed_sharing_rooms'][$rk])) {
-                $cap = $cfg['fixed_sharing_rooms'][$rk]['capacity'];
-                $pp_price = $tour['sharing_prices'][$rk] ?? 0;
-                $total_cost += ($pp_price * $cap * $qty);
+        $trip_days = intval($tour['trip_days'] ?? 7);
+        $pickup_loc = sanitize_text_field($tour['pickup_location'] ?? 'srinagar');
+        $tour_date = sanitize_text_field($tour['date'] ?? date('Y-m-d'));
+        
+        $surcharge_percent = 0;
+        $m_d = date('m-d', strtotime($tour_date));
+        foreach ($cfg['seasonal_surcharges'] as $season) {
+            $start = $season['start']; $end = $season['end'];
+            if ($start > $end) {
+                if ($m_d >= $start || $m_d <= $end) { $surcharge_percent = $season['surcharge_percent']; break; }
+            } else {
+                if ($m_d >= $start && $m_d <= $end) { $surcharge_percent = $season['surcharge_percent']; break; }
             }
         }
+        $season_multiplier = 1 + ($surcharge_percent / 100);
+        $hotel_multiplier = $cfg['hotel_categories'][$tour['hotel_category']]['multiplier'] ?? 1.0;
 
-        $new_base_price = $total_cost;
+        $total_vehicle_cost = 0; 
+        foreach ($tour['vehicles'] as $v_key => $qty) { 
+            $daily = $cfg['vehicles'][$v_key]['price_per_day'][$pickup_loc] ?? ($cfg['vehicles'][$v_key]['price'] / 7);
+            $total_vehicle_cost += ($daily * $trip_days * $qty); 
+        }
+        $veh_cost_per_seat = $total_vehicle_cost / max(1, intval($tour['total_seats']));
 
-        $new_rooms_display = utpc_get_display_from_keys($new_rooms, $cfg['fixed_sharing_rooms']);
+        $new_room_cost = utpc_get_cost_from_keys($new_rooms, $cfg['rooms']);
+        
+        $agent_price = ($veh_cost_per_seat * $new_pax) + $new_room_cost + ($cfg['base_cost_per_pax'] * $new_pax);
+        $pp_base = ceil(($agent_price / $new_pax + $cfg['profit_margin_per_pax']) / 500) * 500;
+        $new_base_price = $pp_base * $new_pax;
+
+        $new_rooms_display = utpc_get_display_from_keys($new_rooms, $cfg['rooms']);
         update_post_meta($booking_id, 'rooms', $new_rooms_display);
     }
 

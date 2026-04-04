@@ -49,16 +49,6 @@ return [
         'standard' => [ 'name' => 'Deluxe Room + MAP' , 'price' => 6000, 'capacity' => 3, 'max_qty' => 0 ],
         'family'   => [ 'name' => 'Family Deluxe + MAP', 'price' => 7000, 'capacity' => 4, 'max_qty' => 2 ],
     ],
-
-    // ---------------------------------------------------------
-    // 4b. FIXED DEPARTURE SHARING SETTINGS
-    // ---------------------------------------------------------
-    'fixed_sharing_rooms' => [
-        'single' => [ 'name' => 'Single Sharing Room', 'capacity' => 1 ],
-        'double' => [ 'name' => 'Double Sharing Room', 'capacity' => 2 ],
-        'triple' => [ 'name' => 'Triple Sharing Room', 'capacity' => 3 ],
-        'quad'   => [ 'name' => 'Four Sharing Room',   'capacity' => 4 ],
-    ],
     
     // ---------------------------------------------------------
     // 5. VEHICLE SETTINGS (With Per Day & Location Pricing)
@@ -127,15 +117,7 @@ return [
             'pickup_location' => 'jammu',
             'trip_days'       => 8,
             'vehicles'        => [ 'urbania' => 1 ], 
-            'total_seats'     => 15,
-            
-            // ADDED: Explicit Per Person Pricing based on sharing
-            'sharing_prices'  => [
-                'single' => 21000,
-                'double' => 15500,
-                'triple' => 16000,
-                'quad'   => 15500,
-            ]
+            'total_seats'     => 15
         ],
     ]
 ];
