@@ -105,9 +105,9 @@ function utpc_render_shortcode() {
                 <input type="hidden" name="calc_mode" value="fixed">
                 <div class="input-master-table">
                     <div class="compact-box" style="grid-column: 1 / -1;">
-                        <div class="compact-label">1. Select Tour Date / Fixed Departure</div>
+                        <div class="compact-label">1. Select Fixed Departure</div>
                         <select name="fixed_tour" id="fixed_tour_select" class="u-field" style="background:#f0f7ff; font-weight:800; border-color:#bae6fd; color:#0369a1; height: 40px; font-size: 14px;">
-                            <option value="">-- Choose a Tour Date --</option>
+                            <option value="">-- Choose a Tour --</option>
                             <?php 
                             if(isset($settings['fixed_departures'])) {
                                 foreach($settings['fixed_departures'] as $k => $tour) {
@@ -158,6 +158,11 @@ function utpc_render_shortcode() {
     <div id="tpl-room-row" class="hidden">
         <div class="build-row"><select name="custom_rooms[]" class="u-field" style="border:none; background:transparent;"><?php foreach($settings['rooms'] as $k => $r) { echo "<option value='{$k}'>{$r['name']} ({$r['capacity']} Pax)</option>"; } ?></select><button type="button" class="btn-rem">&times;</button></div>
     </div>
+    
+    <div id="tpl-fixed-room-row" class="hidden">
+        <div class="build-row"><select name="custom_rooms[]" class="u-field" style="border:none; background:transparent;"><?php if(isset($settings['fixed_sharing_rooms'])) { foreach($settings['fixed_sharing_rooms'] as $k => $r) { echo "<option value='{$k}'>{$r['name']} ({$r['capacity']} Pax)</option>"; } } ?></select><button type="button" class="btn-rem">&times;</button></div>
+    </div>
+
     <div id="tpl-veh-row" class="hidden">
         <div class="build-row"><select name="custom_vehicles[]" class="u-field" style="border:none; background:transparent;"><?php foreach($settings['vehicles'] as $k => $v) { echo "<option value='{$k}'>{$v['name']} ({$v['capacity']} Pax)</option>"; } ?></select><button type="button" class="btn-rem">&times;</button></div>
     </div>

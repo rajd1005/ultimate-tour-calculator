@@ -204,7 +204,8 @@ function utpc_handle_get_tour_details() {
         if(empty($customer) || $customer === 'Unknown') $customer = "Booking #" . $b->ID;
 
         $rooms_raw = get_post_meta($b->ID, 'rooms', true);
-        $room_keys_arr = utpc_extract_keys($rooms_raw, $cfg['rooms']);
+        $room_config = $is_custom ? $cfg['rooms'] : ($cfg['fixed_sharing_rooms'] ?? []);
+        $room_keys_arr = utpc_extract_keys($rooms_raw, $room_config);
         $room_keys = implode(',', $room_keys_arr);
         
         $veh_raw = ''; $veh_keys = '';
@@ -221,7 +222,7 @@ function utpc_handle_get_tour_details() {
             $room_counts = array_count_values($room_keys_arr);
             $room_text = [];
             foreach($room_counts as $rk => $rqty) {
-                $rname = reset(explode(' ', $cfg['rooms'][$rk]['name'] ?? $rk));
+                $rname = reset(explode(' ', $room_config[$rk]['name'] ?? $rk));
                 $room_text[] = "<div style='display:inline-block; background:#f1f5f9; padding:2px 6px; border-radius:4px; margin:2px 0; border:1px solid #e2e8f0;'>{$rqty}x {$rname}</div>";
             }
             $rooms_display = implode('<br>', $room_text);
@@ -448,14 +449,9 @@ function utpc_handle_add_payment() {
     $total_price = (float) get_post_meta($booking_id, 'total_price', true);
     $total_paid  = (float) get_post_meta($booking_id, 'total_paid', true);
 
-    // --- STRICT BALANCE VALIDATION (BACKEND) ---
     $current_balance = max(0, $total_price - $total_paid);
-    if ($current_balance <= 0) {
-        wp_send_json_error("This booking is already fully paid.");
-    }
-    if ($pay_amount > $current_balance) {
-        wp_send_json_error("Error: Payment amount (₹" . number_format($pay_amount) . ") exceeds the remaining balance (₹" . number_format($current_balance) . ").");
-    }
+    if ($current_balance <= 0) { wp_send_json_error("This booking is already fully paid."); }
+    if ($pay_amount > $current_balance) { wp_send_json_error("Error: Payment amount (₹" . number_format($pay_amount) . ") exceeds the remaining balance (₹" . number_format($current_balance) . ")."); }
 
     $new_paid = $total_paid + $pay_amount;
     $new_balance = max(0, $total_price - $new_paid);
@@ -474,9 +470,7 @@ function utpc_handle_add_payment() {
     $tour_name = ($tour_id === 'custom_trip') ? "Custom Tour Package" : ($cfg['fixed_departures'][$tour_id]['name'] ?? 'Tour Package');
 
     if (!empty($email)) {
-        
         $headers = array('Content-Type: text/html; charset=UTF-8');
-
         $base_price      = (float) get_post_meta($booking_id, 'base_price', true);
         $discount_amount = (float) get_post_meta($booking_id, 'discount_amount', true);
         $subtotal        = (float) get_post_meta($booking_id, 'subtotal', true);
@@ -588,7 +582,8 @@ function utpc_handle_update_booking() {
 
     if($service_type !== 'cab') {
         $total_room_capacity = 0;
-        foreach ($new_rooms as $rk) { if (isset($cfg['rooms'][$rk])) $total_room_capacity += $cfg['rooms'][$rk]['capacity']; }
+        $room_cfg = ($tour_id === 'custom_trip') ? $cfg['rooms'] : ($cfg['fixed_sharing_rooms'] ?? []);
+        foreach ($new_rooms as $rk) { if (isset($room_cfg[$rk])) $total_room_capacity += $room_cfg[$rk]['capacity']; }
         if ($total_room_capacity < $new_pax) wp_send_json_error("Capacity Error: The selected rooms can only accommodate {$total_room_capacity} persons, but you requested {$new_pax} Pax.");
     }
 
@@ -653,7 +648,6 @@ function utpc_handle_update_booking() {
         update_post_meta($booking_id, 'vehicle', $new_vehs_display);
 
     } else {
-        
         // FIXED DEPARTURES UPDATE LOGIC
         $pax_diff = $new_pax - $old_pax;
         if ($pax_diff > 0) {
@@ -667,37 +661,14 @@ function utpc_handle_update_booking() {
 
         $tour = $cfg['fixed_departures'][$tour_id];
         
-        $trip_days = intval($tour['trip_days'] ?? 7);
-        $pickup_loc = sanitize_text_field($tour['pickup_location'] ?? 'srinagar');
-        $tour_date = sanitize_text_field($tour['date'] ?? date('Y-m-d'));
-        
-        $surcharge_percent = 0;
-        $m_d = date('m-d', strtotime($tour_date));
-        foreach ($cfg['seasonal_surcharges'] as $season) {
-            $start = $season['start']; $end = $season['end'];
-            if ($start > $end) {
-                if ($m_d >= $start || $m_d <= $end) { $surcharge_percent = $season['surcharge_percent']; break; }
-            } else {
-                if ($m_d >= $start && $m_d <= $end) { $surcharge_percent = $season['surcharge_percent']; break; }
+        $new_base_price = 0;
+        foreach ($new_rooms as $rk) {
+            if (isset($cfg['fixed_sharing_rooms'][$rk]) && isset($tour['sharing_prices'][$rk])) {
+                $new_base_price += $cfg['fixed_sharing_rooms'][$rk]['capacity'] * $tour['sharing_prices'][$rk];
             }
         }
-        $season_multiplier = 1 + ($surcharge_percent / 100);
-        $hotel_multiplier = $cfg['hotel_categories'][$tour['hotel_category']]['multiplier'] ?? 1.0;
 
-        $total_vehicle_cost = 0; 
-        foreach ($tour['vehicles'] as $v_key => $qty) { 
-            $daily = $cfg['vehicles'][$v_key]['price_per_day'][$pickup_loc] ?? ($cfg['vehicles'][$v_key]['price'] / 7);
-            $total_vehicle_cost += ($daily * $trip_days * $qty); 
-        }
-        $veh_cost_per_seat = $total_vehicle_cost / max(1, intval($tour['total_seats']));
-
-        $new_room_cost = utpc_get_cost_from_keys($new_rooms, $cfg['rooms']);
-        
-        $agent_price = ($veh_cost_per_seat * $new_pax) + $new_room_cost + ($cfg['base_cost_per_pax'] * $new_pax);
-        $pp_base = ceil(($agent_price / $new_pax + $cfg['profit_margin_per_pax']) / 500) * 500;
-        $new_base_price = $pp_base * $new_pax;
-
-        $new_rooms_display = utpc_get_display_from_keys($new_rooms, $cfg['rooms']);
+        $new_rooms_display = utpc_get_display_from_keys($new_rooms, $cfg['fixed_sharing_rooms']);
         update_post_meta($booking_id, 'rooms', $new_rooms_display);
     }
 
@@ -840,10 +811,8 @@ function utpc_handle_ajax_calculation() {
         
         echo '<div class="res-container" style="padding:10px; background:#fff; border:1px solid #e2e8f0; border-radius:6px; margin-top:15px; font-family:sans-serif; line-height:1.2;">';
         echo "<div style='text-align:center; border-bottom:1px dashed #cbd5e1; padding-bottom:6px; margin-bottom:6px;'><h3 style='margin:0; color:#0369a1; font-size:14px; font-weight:800;'>" . esc_html($row['tour_name']) . "</h3></div>";
-        echo "<div style='text-align:center; font-size:11px; color:#64748b; margin-bottom:10px;'><b>Dates:</b> {$row['start_date']} ➔ {$row['end_date']} | <b>Season:</b> <span style='color:#ca8a04; font-weight:bold;'>{$row['season_name']}</span></div>";
         
         echo "<table style='width:100%; border-collapse:collapse; background:#f8fafc; font-size:10px !important; color:#334155; margin-bottom:6px; border:1px solid #e2e8f0; border-radius:4px;'>";
-        echo "<tr><td style='padding:4px; border-bottom:1px solid #e2e8f0;'><b>Veh:</b> {$row['v_h']}</td></tr>";
         echo "<tr><td style='padding:4px;'><b>Rooms:</b> {$row['r_h']}</td></tr>";
         echo "</table>";
         

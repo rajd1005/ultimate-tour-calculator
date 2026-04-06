@@ -6,9 +6,7 @@ return [
     // 0. ROLE BASED ACCESS CONTROL (RBAC)
     // ---------------------------------------------------------
     'role_settings' => [
-        // Managers see Agent/Profit columns AND the Booking Dashboard
-        'managers'  => ['administrator'], 
-        // Employees only see the Booking Dashboard (Agent/Profit is hidden)
+        'managers'  => ['administrator', 'company_owner'], 
         'employees' => ['editor', 'author', 'shop_manager'], 
     ],
 
@@ -47,37 +45,27 @@ return [
     // ---------------------------------------------------------
     'rooms' => [
         'standard' => [ 'name' => 'Deluxe Room + MAP' , 'price' => 6000, 'capacity' => 3, 'max_qty' => 0 ],
-        'family'   => [ 'name' => 'Family Deluxe + MAP', 'price' => 7000, 'capacity' => 4, 'max_qty' => 2 ],
+        //'family'   => [ 'name' => 'Family Deluxe + MAP', 'price' => 7000, 'capacity' => 4, 'max_qty' => 2 ],
+    ],
+
+    // ---------------------------------------------------------
+    // 4b. FIXED DEPARTURE SHARING SETTINGS
+    // ---------------------------------------------------------
+    'fixed_sharing_rooms' => [
+        'single' => [ 'name' => 'Single Sharing Room', 'capacity' => 1 ],
+        'double' => [ 'name' => 'Double Sharing Room', 'capacity' => 2 ],
+        'triple' => [ 'name' => 'Triple Sharing Room', 'capacity' => 3 ],
+        'quad'   => [ 'name' => 'Four Sharing Room',   'capacity' => 4 ],
     ],
     
     // ---------------------------------------------------------
-    // 5. VEHICLE SETTINGS (With Per Day & Location Pricing)
+    // 5. VEHICLE SETTINGS
     // ---------------------------------------------------------
     'vehicles' => [
-        'dzire'   => [ 
-            'name' => 'Dzire', 
-            'capacity' => 4, 
-            'price' => 0, 
-            'price_per_day' => ['srinagar' => 1800, 'jammu' => 3200] 
-        ],
-        'innova'  => [ 
-            'name' => 'Innova',  
-            'capacity' => 7, 
-            'price' => 0, 
-            'price_per_day' => ['srinagar' => 2700, 'jammu' => 4000] 
-        ],
-        'urbania' => [ 
-            'name' => 'Urbania', 
-            'capacity' => 15, 
-            'price' => 0, 
-            'price_per_day' => ['srinagar' => 6000, 'jammu' => 7500] 
-        ],
-        'Crysta' => [ 
-            'name' => 'Crysta', 
-            'capacity' => 7, 
-            'price' => 0, 
-            'price_per_day' => ['srinagar' => 3500, 'jammu' => 5500] 
-        ],
+        'dzire'   => [ 'name' => 'Dzire', 'capacity' => 4, 'price' => 0, 'price_per_day' => ['srinagar' => 1800, 'jammu' => 3200] ],
+        'innova'  => [ 'name' => 'Innova', 'capacity' => 7, 'price' => 0, 'price_per_day' => ['srinagar' => 2700, 'jammu' => 4000] ],
+        'urbania' => [ 'name' => 'Urbania', 'capacity' => 15, 'price' => 0, 'price_per_day' => ['srinagar' => 6000, 'jammu' => 7500] ],
+        'Crysta'  => [ 'name' => 'Crysta', 'capacity' => 7, 'price' => 0, 'price_per_day' => ['srinagar' => 3500, 'jammu' => 5500] ],
     ],
 
     // ---------------------------------------------------------
@@ -112,12 +100,13 @@ return [
     'fixed_departures' => [
         'kashmir_aug' => [
             'name'            => 'Kashmir Valley with Vaishno Devi Darshan',
-            'date'            => '2024-05-08',
-            'hotel_category'  => 'budget',
-            'pickup_location' => 'jammu',
-            'trip_days'       => 8,
-            'vehicles'        => [ 'urbania' => 1 ], 
-            'total_seats'     => 15
+            'total_seats'     => 15,
+            'sharing_prices'  => [
+                'single' => 21000,
+                'double' => 15500,
+                'triple' => 16000,
+                'quad'   => 15500,
+            ]
         ],
     ]
 ];

@@ -81,7 +81,6 @@ jQuery(document).ready(function($) {
         let numPP = "₹" + Number(pp).toLocaleString('en-IN');
         let numTot = "₹" + Number(tot).toLocaleString('en-IN');
         
-        // Dynamically grab titles and inclusions from PHP settings
         let title = utpc_obj.popup_title;
         let subtitle = utpc_obj.popup_subtitle;
         let incHtml = utpc_obj.inclusions.map(i => `✓ ${i}<br>`).join('');
@@ -164,7 +163,6 @@ jQuery(document).ready(function($) {
         $('#cb_pp').val(btn.data('pp')); $('#cb_tot').val(btn.data('tot'));
         $('#cb_start').val(btn.data('start')); $('#cb_end').val(btn.data('end'));
         
-        // Populate new hidden fields
         if($('#cb_days').length === 0) {
             $('#utpc-custom-book-form').prepend(`<input type="hidden" name="cb_days" id="cb_days"><input type="hidden" name="cb_pickup" id="cb_pickup"><input type="hidden" name="cb_service" id="cb_service">`);
         }
@@ -230,7 +228,7 @@ jQuery(document).ready(function($) {
     // ==========================================
     // FIXED DEPARTURE BOOKING
     // ==========================================
-    $('#add-f-r').click(function() { $('#list-f-r').append($('#tpl-room-row').html()); });
+    $('#add-f-r').click(function() { $('#list-f-r').append($('#tpl-fixed-room-row').html()); });
     $('#fixed_tour_select').change(function() {
         let maxLeft = $(this).find(':selected').data('left') || 0;
         $('#max-pax-label').text(maxLeft);
@@ -240,7 +238,7 @@ jQuery(document).ready(function($) {
     $('#utpc-fixed-form').submit(function(e) {
         e.preventDefault();
         let fixedSelect = $('#fixed_tour_select').find(':selected');
-        if(!fixedSelect.val()) { alert("Please select a Tour Date."); return; }
+        if(!fixedSelect.val()) { alert("Please select a Tour."); return; }
         
         let maxSeats = parseInt(fixedSelect.data('left') || 0);
         let reqSeats = parseInt($('#fixed_tour_pax').val() || 0);
@@ -323,7 +321,15 @@ jQuery(document).ready(function($) {
         }).fail(function() { resDiv.html('<div style="color:red; text-align:center; padding:15px;">A server error occurred while fetching the details.</div>'); });
     });
 
-    $('#add-edit-f-r').click(function() { $('#edit-list-f-r').append($('#tpl-room-row').html()); });
+    $('#add-edit-f-r').click(function() { 
+        let tid = $('#edit_tour_id').val();
+        if(tid === 'custom_trip') {
+            $('#edit-list-f-r').append($('#tpl-room-row').html()); 
+        } else {
+            $('#edit-list-f-r').append($('#tpl-fixed-room-row').html()); 
+        }
+    });
+    
     $('#add-edit-f-v').click(function() { $('#edit-list-f-v').append($('#tpl-veh-row').html()); });
 
     // EDIT MODAL
@@ -350,7 +356,11 @@ jQuery(document).ready(function($) {
             let roomArray = String(rawRoomKeys).split(',');
             roomArray.forEach(function(room) {
                 room = room.trim();
-                if(room) { let newRow = $($('#tpl-room-row').html()); newRow.find('select').val(room); $('#edit-list-f-r').append(newRow); }
+                if(room) { 
+                    let newRow = (tid === 'custom_trip') ? $($('#tpl-room-row').html()) : $($('#tpl-fixed-room-row').html()); 
+                    newRow.find('select').val(room); 
+                    $('#edit-list-f-r').append(newRow); 
+                }
             });
         }
 
@@ -387,7 +397,7 @@ jQuery(document).ready(function($) {
     $('#utpc-edit-form').submit(function(e) {
         e.preventDefault();
         
-        let serv = $('#edit_tour_id').val() === 'custom_trip' ? 'both' : 'fixed'; // Validated securely on backend
+        let serv = $('#edit_tour_id').val() === 'custom_trip' ? 'both' : 'fixed';
         
         let btn = $('#btn-save-edit');
         btn.text('SAVING...').prop('disabled', true);

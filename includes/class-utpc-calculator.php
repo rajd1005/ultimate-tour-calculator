@@ -24,13 +24,10 @@ class UTPC_Calculator {
                 }
             }
         }
-        return [
-            'percent' => $surcharge_percent,
-            'name' => $season_name,
-            'multiplier' => 1 + ($surcharge_percent / 100)
-        ];
+        return [ 'percent' => $surcharge_percent, 'name' => $season_name, 'multiplier' => 1 + ($surcharge_percent / 100) ];
     }
 
+    // NEW FLAT RATE LOGIC
     private static function process_fixed($data) {
         $cfg = include(UTPC_PATH . 'config/settings.php');
         $tp = max(1, intval($data['tour_pax'] ?? 2));
@@ -39,60 +36,44 @@ class UTPC_Calculator {
         if (!isset($cfg['fixed_departures'][$tour_id])) return [];
         $tour = $cfg['fixed_departures'][$tour_id];
         
-        $tour_date = sanitize_text_field($tour['date'] ?? date('Y-m-d'));
-        $trip_days = max(1, intval($tour['trip_days'] ?? 7));
-        $pickup_loc = sanitize_text_field($tour['pickup_location'] ?? 'srinagar');
-        
-        $season_info = self::get_season_info($tour_date, $cfg['seasonal_surcharges']);
-        
-        $total_vehicle_cost = 0; $vehicle_names = [];
-        foreach ($tour['vehicles'] as $v_key => $qty) {
-            $daily = $cfg['vehicles'][$v_key]['price_per_day'][$pickup_loc] ?? ($cfg['vehicles'][$v_key]['price'] / 7);
-            $total_vehicle_cost += ($daily * $trip_days * $qty);
-            $vehicle_names[] = $qty . "x " . $cfg['vehicles'][$v_key]['name'];
-        }
-        $veh_cost_per_seat = $total_vehicle_cost / max(1, intval($tour['total_seats']));
-
         $rooms = $data['custom_rooms'] ?? [];
         if (empty($rooms)) return [];
 
-        $room_cost = 0; $room_html = ""; $room_raw = [];
+        $room_html = ""; $room_raw = [];
+        $total_price = 0;
+
         $counts = array_count_values((array)$rooms);
         foreach ($counts as $k => $qty) {
-            if (!isset($cfg['rooms'][$k])) continue;
-            $room_cost += $qty * $cfg['rooms'][$k]['price'];
-            $name = $cfg['rooms'][$k]['name'];
+            if (!isset($cfg['fixed_sharing_rooms'][$k])) continue;
+            
+            $capacity = $cfg['fixed_sharing_rooms'][$k]['capacity'];
+            $price_pp = $tour['sharing_prices'][$k] ?? 0;
+            
+            $total_price += ($qty * $capacity * $price_pp);
+
+            $name = $cfg['fixed_sharing_rooms'][$k]['name'];
             $room_html .= "<span class='u-badge badge-room-std'>{$qty}x {$name}</span> ";
             $room_raw[] = "{$qty}x {$name}";
         }
 
-        $base_cost = ($veh_cost_per_seat * $tp) + $room_cost + ($cfg['base_cost_per_pax'] * $tp);
-        $hotel_multiplier = $cfg['hotel_categories'][$tour['hotel_category']]['multiplier'] ?? 1.0;
-        
-        // Apply Season & Hotel Multiplier
-        $agent_price = $base_cost * $hotel_multiplier * $season_info['multiplier']; 
-        
-        $pp = ceil(($agent_price / $tp + $cfg['profit_margin_per_pax']) / 500) * 500;
-        
-        $start_date_str = date('d M Y', strtotime($tour_date));
-        $end_date_str = date('d M Y', strtotime($tour_date . " + " . ($trip_days - 1) . " days"));
+        $pp = $tp > 0 ? ($total_price / $tp) : 0;
 
         return [[
             'tour_name' => $tour['name'],
-            'v_h' => "<span class='u-badge badge-veh'>" . implode(', ', $vehicle_names) . "</span>",
-            'v_r' => implode(', ', $vehicle_names),
+            'v_h' => 'N/A',
+            'v_r' => 'N/A',
             'r_h' => "<div class='badge-list'>$room_html</div>",
             'r_r' => implode(', ', $room_raw),
             'pp'  => $pp, 
-            'tot' => $pp * $tp, 
+            'tot' => $total_price, 
             'tp'  => $tp,
-            'start_date' => $start_date_str,
-            'end_date'   => $end_date_str,
-            'season_name'=> $season_info['name'],
-            'surcharge_percent' => $season_info['percent'],
-            'trip_days'  => $trip_days,
-            'pickup_loc' => $pickup_loc,
-            'service_type'=> 'both'
+            'start_date' => 'N/A',
+            'end_date'   => 'N/A',
+            'season_name'=> 'N/A',
+            'surcharge_percent' => 0,
+            'trip_days'  => 0,
+            'pickup_loc' => 'N/A',
+            'service_type'=> 'fixed'
         ]];
     }
 
